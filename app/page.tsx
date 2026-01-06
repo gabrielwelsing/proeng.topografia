@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Upload,
   Download,
@@ -9,22 +9,23 @@ import {
   MapPin,
   FileSpreadsheet,
   Lock,
-  ChevronRight,
+  Filter,
+  Calendar,
 } from 'lucide-react';
 import {
   ClerkProvider,
   SignInButton,
-  SignUpButton,
   SignedIn,
   SignedOut,
   UserButton,
   useUser,
 } from '@clerk/nextjs';
 
-// --- CONFIGURAÇÕES ORIGINAIS ---
+// --- CONFIGURAÇÕES ---
 const PRECO_PROJETADO = 0.35;
 const PRECO_EXISTENTE = 0.2;
 const PRECO_RURAL = 1.4;
+
 const CATEGORIAS_LISTA = [
   'AC',
   'EXT.RURAL',
@@ -36,30 +37,56 @@ const CATEGORIAS_LISTA = [
   'ESTRADA',
 ];
 
+const TOPOGRAFOS_LISTA = [
+  'CAIO',
+  'ALEX TEIXEIRA',
+  'FABIANO',
+  'BRUNO',
+  'FREELANCER',
+  'HENRIQUE',
+  'MAURICIO',
+  'GENIVALDO',
+  'KENEDY',
+  'JUNIOR',
+  'MAURO',
+];
+
 type TipoPoste = 'projetado' | 'existente' | 'rural';
 
 interface ProjetoSalvo {
   id: number;
   ns: string;
   data: string;
+  dataIso: string;
   postes: { x: number; y: number; tipo: TipoPoste }[];
   total: number;
   categoriasGlobais: string[];
+  topografo: string;
 }
 
 function SistemaLevantamento() {
   const { user } = useUser();
   const [isMounted, setIsMounted] = useState(false);
+
+  // Estados principais
   const [etapa, setEtapa] = useState<'upload' | 'desenho'>('upload');
   const [arquivo, setArquivo] = useState<string | null>(null);
   const [postes, setPostes] = useState<
     { x: number; y: number; tipo: TipoPoste }[]
   >([]);
   const [historico, setHistorico] = useState<ProjetoSalvo[]>([]);
+
+  // Inputs
   const [nsInput, setNsInput] = useState<string>('');
   const [categoriasSelecionadas, setCategoriasSelecionadas] = useState<
     string[]
   >([]);
+  const [topografoSelecionado, setTopografoSelecionado] = useState<string>('');
+
+  // Filtros
+  const [filtroDataInicio, setFiltroDataInicio] = useState<string>('');
+  const [filtroDataFim, setFiltroDataFim] = useState<string>('');
+
   const [xlsxReady, setXlsxReady] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -67,7 +94,6 @@ function SistemaLevantamento() {
 
   const isApproved = user?.publicMetadata?.status === 'approved';
 
-  // --- EFEITOS (Carregamento e Scripts) ---
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== 'undefined') {
@@ -88,12 +114,13 @@ function SistemaLevantamento() {
       if (salvos) {
         try {
           const parsed = JSON.parse(salvos);
-          // Sanitização para evitar erros se categoriasGlobais não existir em registros antigos
           const treated = parsed.map((p: any) => ({
             ...p,
             categoriasGlobais: Array.isArray(p.categoriasGlobais)
               ? p.categoriasGlobais
               : [],
+            topografo: p.topografo || '',
+            dataIso: p.dataIso || formatarDataParaIso(p.data),
           }));
           setHistorico(treated);
         } catch (e) {
@@ -103,42 +130,85 @@ function SistemaLevantamento() {
     }
   }, []);
 
-  // --- LÓGICA DO CANVAS (Redesenhar quando algo muda) ---
-  useEffect(() => {
+  const formatarDataParaIso = (dataBR: string) => {
+    if (!dataBR) return '';
+    const partes = dataBR.split('/');
+    if (partes.length === 3) return `${partes[2]}-${partes[1]}-${partes[0]}`;
+    return '';
+  };
+
+  // --- LÓGICA DO CANVAS (Sincronização de Tamanho) ---
+  const atualizarTamanhoCanvas = () => {
     if (etapa === 'desenho' && canvasRef.current && imagemRef.current) {
       const cvs = canvasRef.current;
-      const ctx = cvs.getContext('2d');
-      if (!ctx) return;
+      const img = imagemRef.current;
 
-      // Garante que o canvas tenha o tamanho exato da imagem exibida
-      cvs.width = imagemRef.current.clientWidth;
-      cvs.height = imagemRef.current.clientHeight;
-      ctx.clearRect(0, 0, cvs.width, cvs.height);
-
-      postes.forEach((p, i) => {
-        let cor =
-          p.tipo === 'existente'
-            ? '#f97316'
-            : p.tipo === 'rural'
-            ? '#2563eb'
-            : '#10b981';
-        ctx.fillStyle = cor;
-        // Desenha quadrado pequeno (10px de raio visual)
-        ctx.fillRect(p.x - 10, p.y - 10, 20, 20);
-        ctx.strokeStyle = '#fff';
-        ctx.strokeRect(p.x - 10, p.y - 10, 20, 20);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 9px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`${i + 1}`, p.x, p.y);
-      });
+      // O canvas deve ter EXATAMENTE o tamanho em pixels que a imagem está ocupando na tela
+      if (img.clientWidth > 0 && img.clientHeight > 0) {
+        cvs.width = img.clientWidth;
+        cvs.height = img.clientHeight;
+        desenharPontos();
+      }
     }
-  }, [postes, etapa, arquivo]); // Redesenha ao adicionar postes ou mudar tamanho da janela (se houver resize)
+  };
+
+  useEffect(() => {
+    window.addEventListener('resize', atualizarTamanhoCanvas);
+    const timeOut = setTimeout(atualizarTamanhoCanvas, 100);
+    return () => {
+      window.removeEventListener('resize', atualizarTamanhoCanvas);
+      clearTimeout(timeOut);
+    };
+  }, [etapa, arquivo, postes]);
+
+  const desenharPontos = () => {
+    const cvs = canvasRef.current;
+    const ctx = cvs?.getContext('2d');
+    if (!cvs || !ctx) return;
+
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+    postes.forEach((p, i) => {
+      let cor =
+        p.tipo === 'existente'
+          ? '#f97316'
+          : p.tipo === 'rural'
+          ? '#2563eb'
+          : '#10b981';
+      ctx.fillStyle = cor;
+      ctx.fillRect(p.x - 10, p.y - 10, 20, 20);
+      ctx.strokeStyle = '#fff';
+      ctx.strokeRect(p.x - 10, p.y - 10, 20, 20);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${i + 1}`, p.x, p.y);
+    });
+  };
+
+  const historicoFiltrado = useMemo(() => {
+    return historico.filter((item) => {
+      const itemData = item.dataIso || formatarDataParaIso(item.data);
+      if (filtroDataInicio && itemData < filtroDataInicio) return false;
+      if (filtroDataFim && itemData > filtroDataFim) return false;
+      return true;
+    });
+  }, [historico, filtroDataInicio, filtroDataFim]);
+
+  const aplicarFiltroHoje = () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    setFiltroDataInicio(hoje);
+    setFiltroDataFim(hoje);
+  };
+
+  const limparFiltros = () => {
+    setFiltroDataInicio('');
+    setFiltroDataFim('');
+  };
 
   if (!isMounted) return null;
 
-  // --- TELA DE BLOQUEIO ---
   if (!isApproved) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center font-sans">
@@ -149,7 +219,7 @@ function SistemaLevantamento() {
           </h2>
           <p className="text-slate-500 mt-4 leading-relaxed font-medium">
             Olá <strong>{user?.firstName}</strong>. Solicite a liberação do seu
-            acesso ao administrador.
+            acesso.
           </p>
           <div className="mt-8 pt-6 border-t flex justify-center">
             <UserButton afterSignOutUrl="/" />
@@ -159,13 +229,13 @@ function SistemaLevantamento() {
     );
   }
 
-  // --- FUNÇÕES DE LÓGICA ---
   const handleUpload = (e: any) => {
     const file = e.target.files?.[0];
     if (file) {
       setArquivo(URL.createObjectURL(file));
       setPostes([]);
       setCategoriasSelecionadas([]);
+      setTopografoSelecionado('');
       setEtapa('desenho');
     }
   };
@@ -173,9 +243,11 @@ function SistemaLevantamento() {
   const adicionarPoste = (e: any) => {
     e.preventDefault();
     if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+
+    // Método direto e robusto (offsetX pega a coordenada dentro do elemento clicado)
+    const x = e.nativeEvent.offsetX;
+    const y = e.nativeEvent.offsetY;
+
     let tipo: TipoPoste = 'projetado';
     if (e.button === 2) tipo = 'existente';
     else if (e.shiftKey) tipo = 'rural';
@@ -183,32 +255,28 @@ function SistemaLevantamento() {
     setPostes([...postes, { x, y, tipo }]);
   };
 
-  const removerPoste = (index: number) => {
-    const novos = [...postes];
-    novos.splice(index, 1);
-    setPostes(novos);
-  };
-
   const salvarProjeto = () => {
-    // --- TRAVAS DE SEGURANÇA (Solicitação do Print 3) ---
-    if (nsInput.length < 10) return alert('ERRO: A NS deve conter 10 dígitos.');
-    if (categoriasSelecionadas.length === 0) {
-      return alert(
-        'ERRO: Selecione pelo menos uma Categoria (Ex: AC, EXT.RURAL) na barra superior antes de salvar.'
-      );
-    }
+    // --- TRAVAS DE SEGURANÇA ---
+    if (nsInput.length !== 10)
+      return alert('ERRO: A NS deve conter exatamente 10 dígitos.');
+    if (categoriasSelecionadas.length === 0)
+      return alert('ERRO: Selecione pelo menos uma Categoria.');
+    if (!topografoSelecionado)
+      return alert('ERRO: Selecione o nome do Topógrafo.');
 
     if (!imagemRef.current || !canvasRef.current) return;
 
-    // Gerar imagem final
     const img = imagemRef.current;
     const cvsExp = document.createElement('canvas');
     cvsExp.width = img.naturalWidth;
     cvsExp.height = img.naturalHeight;
     const ctx = cvsExp.getContext('2d');
     if (!ctx) return;
+
     ctx.drawImage(img, 0, 0);
-    const escala = img.naturalWidth / img.clientWidth; // Proporção entre tela e real
+
+    const escalaX = img.naturalWidth / canvasRef.current.width;
+    const escalaY = img.naturalHeight / canvasRef.current.height;
 
     postes.forEach((p, i) => {
       let cor =
@@ -217,66 +285,79 @@ function SistemaLevantamento() {
           : p.tipo === 'rural'
           ? '#2563eb'
           : '#10b981';
-      const tam = 24 * escala; // Escala o tamanho do quadrado para a resolução real da imagem
+      const referenciaBase = Math.max(img.naturalWidth, 1000);
+      const tam = 24 * (referenciaBase / 1000);
+      const fonte = 12 * (referenciaBase / 1000);
+
+      const pX = p.x * escalaX;
+      const pY = p.y * escalaY;
+
       ctx.fillStyle = cor;
-      ctx.fillRect(p.x * escala - tam / 2, p.y * escala - tam / 2, tam, tam);
+      ctx.fillRect(pX - tam / 2, pY - tam / 2, tam, tam);
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2 * escala;
-      ctx.strokeRect(p.x * escala - tam / 2, p.y * escala - tam / 2, tam, tam);
+      ctx.lineWidth = 2 * (referenciaBase / 1000);
+      ctx.strokeRect(pX - tam / 2, pY - tam / 2, tam, tam);
       ctx.fillStyle = '#fff';
-      ctx.font = `bold ${12 * escala}px Arial`;
+      ctx.font = `bold ${fonte}px Arial`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${i + 1}`, p.x * escala, p.y * escala);
+      ctx.fillText(`${i + 1}`, pX, pY);
     });
 
-    // Download
     const link = document.createElement('a');
-    link.download = `Croqui_${nsInput}.png`;
+    link.download = `Croqui_${nsInput}_${topografoSelecionado}.png`;
     link.href = cvsExp.toDataURL('image/png');
     link.click();
 
-    // Salvar Dados
     const vTotal =
       postes.filter((p) => p.tipo === 'projetado').length * PRECO_PROJETADO +
       postes.filter((p) => p.tipo === 'existente').length * PRECO_EXISTENTE +
       postes.filter((p) => p.tipo === 'rural').length * PRECO_RURAL;
 
+    const hoje = new Date();
     const novo = {
       id: Date.now(),
       ns: nsInput,
-      data: new Date().toLocaleDateString('pt-BR'),
+      data: hoje.toLocaleDateString('pt-BR'),
+      dataIso: hoje.toISOString().split('T')[0],
       postes,
       categoriasGlobais: categoriasSelecionadas,
+      topografo: topografoSelecionado,
       total: vTotal,
     };
     const h = [novo, ...historico];
     setHistorico(h);
     localStorage.setItem('historicoProjetos', JSON.stringify(h));
 
-    // Reset
     setEtapa('upload');
     setNsInput('');
+    setCategoriasSelecionadas([]);
+    setTopografoSelecionado('');
   };
 
   const exportarExcel = () => {
     if (!xlsxReady || !(window as any).XLSX)
       return alert('Carregando Excel...');
     const XLSX = (window as any).XLSX;
-    const dados = historico.map((h) => ({
+
+    const dados = historicoFiltrado.map((h) => ({
       NS: h.ns,
       DATA: h.data,
       QTD: h.postes.length,
       'TOTAL US': h.total.toFixed(2).replace('.', ','),
       CATEGORIAS: h.categoriasGlobais ? h.categoriasGlobais.join(', ') : '',
+      TOPÓGRAFO: h.topografo || '',
     }));
+
+    if (dados.length === 0)
+      return alert('Nada para exportar com os filtros atuais.');
+
     const ws = XLSX.utils.json_to_sheet(dados);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Levantamentos');
     XLSX.writeFile(wb, 'Relatorio_ProEng.xlsx');
   };
 
-  // Cálculos para o Resumo Lateral
   const qtdProj = postes.filter((p) => p.tipo === 'projetado').length;
   const qtdExist = postes.filter((p) => p.tipo === 'existente').length;
   const qtdRural = postes.filter((p) => p.tipo === 'rural').length;
@@ -287,10 +368,11 @@ function SistemaLevantamento() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden font-sans">
-      {/* --- HEADER SLIM (Solicitação Print 2) --- */}
-      {/* Altura reduzida para h-12 para maximizar espaço do croqui */}
-      <header className="h-12 bg-white border-b flex items-center justify-between px-4 shrink-0 z-30 shadow-sm">
-        <div className="flex items-center gap-4">
+      {/* --- HEADER OTIMIZADO (SEM SCROLL) --- */}
+      <header className="h-auto min-h-[4.5rem] bg-white border-b flex items-start justify-between px-4 py-2 shrink-0 z-30 shadow-sm gap-4 transition-all">
+        {/* BLOCO 1: LOGO + NS (Esquerda) */}
+        <div className="flex flex-col gap-2 shrink-0 border-r border-slate-100 pr-4">
+          {/* Logo */}
           <div className="flex items-center gap-2 text-blue-900">
             <MapPin size={18} className="text-blue-700" />
             <h1 className="font-black text-sm tracking-tighter uppercase leading-none">
@@ -298,19 +380,29 @@ function SistemaLevantamento() {
             </h1>
           </div>
 
-          <div className="h-6 w-px bg-slate-200" />
-
-          <input
-            value={nsInput}
-            onChange={(e) => setNsInput(e.target.value)}
-            maxLength={10}
-            placeholder="NS 10 dígitos"
-            className="bg-slate-100 border-none rounded px-2 py-1 text-[11px] font-bold w-32 outline-none font-mono focus:ring-1 focus:ring-blue-400"
-          />
-
-          {/* --- CATEGORIAS NO HEADER (Solicitação: Categorias na barra superior) --- */}
+          {/* NS Input */}
           {etapa === 'desenho' && (
-            <div className="flex gap-1 ml-2 overflow-x-auto no-scrollbar items-center">
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-2 py-1">
+              <span className="text-[10px] font-bold text-slate-400">NS:</span>
+              <input
+                value={nsInput}
+                onChange={(e) => setNsInput(e.target.value)}
+                maxLength={10}
+                placeholder="0000000000"
+                className="bg-transparent border-none text-[11px] font-bold w-20 outline-none font-mono text-slate-700"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* BLOCO 2: CATEGORIAS E TOPÓGRAFOS (Centro Expandido) */}
+        {etapa === 'desenho' ? (
+          <div className="flex-1 flex flex-col gap-1.5 justify-center">
+            {/* Linha Superior: Categorias */}
+            <div className="flex flex-wrap gap-1 items-center">
+              <span className="text-[9px] font-bold text-slate-300 uppercase mr-1">
+                Cat:
+              </span>
               {CATEGORIAS_LISTA.map((cat) => (
                 <button
                   key={cat}
@@ -321,42 +413,66 @@ function SistemaLevantamento() {
                         : [...prev, cat]
                     )
                   }
-                  className={`text-[9px] font-bold px-2 py-0.5 rounded border transition-all whitespace-nowrap ${
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-colors ${
                     categoriasSelecionadas.includes(cat)
                       ? 'bg-blue-600 border-blue-600 text-white'
-                      : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'
+                      : 'bg-white border-slate-200 text-slate-400 hover:border-blue-300'
                   }`}
                 >
                   {cat}
                 </button>
               ))}
             </div>
-          )}
-        </div>
 
-        <div className="flex items-center gap-4">
+            {/* Linha Inferior: Topógrafos */}
+            <div className="flex flex-wrap gap-1 items-center">
+              <span className="text-[9px] font-bold text-slate-300 uppercase mr-1">
+                Top:
+              </span>
+              {TOPOGRAFOS_LISTA.map((nome) => (
+                <button
+                  key={nome}
+                  onClick={() => setTopografoSelecionado(nome)}
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border leading-none transition-colors ${
+                    topografoSelecionado === nome
+                      ? 'bg-orange-500 border-orange-500 text-white'
+                      : 'bg-white border-slate-200 text-slate-400 hover:border-orange-300'
+                  }`}
+                >
+                  {nome}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1"></div>
+        )}
+
+        {/* BLOCO 3: BOTÕES DE AÇÃO (Direita) */}
+        <div className="flex flex-col items-end gap-2 shrink-0 pl-2">
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: { userButtonBox: 'scale-75 origin-right' },
+            }}
+          />
           {etapa === 'desenho' && (
             <button
               onClick={salvarProjeto}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-wider shadow-sm transition-transform active:scale-95 flex items-center gap-1"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
             >
               <Download size={12} /> Salvar
             </button>
           )}
-          {/* User Button menor */}
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{ elements: { userButtonBox: 'scale-75' } }}
-          />
         </div>
       </header>
 
       {/* --- CORPO PRINCIPAL --- */}
       <main className="flex-1 flex overflow-hidden">
         {etapa === 'upload' ? (
-          <div className="flex-1 p-6 grid grid-cols-12 gap-6 w-full max-w-[1400px] mx-auto">
-            {/* Upload Area */}
-            <div className="col-span-8 border-2 border-dashed border-slate-300 rounded-3xl bg-white flex flex-col items-center justify-center relative hover:bg-blue-50 transition-all group cursor-pointer">
+          <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full max-w-[1400px] mx-auto">
+            {/* NOVO LEVANTAMENTO (35%) */}
+            <div className="lg:col-span-4 border-2 border-dashed border-slate-300 rounded-3xl bg-white flex flex-col items-center justify-center relative hover:bg-blue-50 transition-all group cursor-pointer shadow-sm">
               <input
                 type="file"
                 onChange={handleUpload}
@@ -369,51 +485,100 @@ function SistemaLevantamento() {
               <h2 className="text-lg font-bold text-slate-700">
                 Novo Levantamento
               </h2>
-              <p className="text-slate-400 text-xs">
-                Arraste ou clique para carregar
+              <p className="text-slate-400 text-xs text-center px-4">
+                Carregue o croqui aqui
               </p>
             </div>
 
-            {/* --- HISTÓRICO COMPACTO (Solicitação Print 1) --- */}
-            {/* Itens menores para caber mais na tela */}
-            <div className="col-span-4 bg-white rounded-3xl border flex flex-col overflow-hidden shadow-sm">
-              <div className="p-3 border-b flex justify-between items-center bg-slate-50">
-                <span className="text-xs font-black uppercase text-slate-500 flex gap-2 items-center">
-                  <History size={14} /> Histórico
-                </span>
-                <button
-                  onClick={exportarExcel}
-                  className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:bg-emerald-50 px-2 py-1 rounded"
-                >
-                  <FileSpreadsheet size={14} /> Excel
-                </button>
+            {/* HISTÓRICO (65%) */}
+            <div className="lg:col-span-8 bg-white rounded-3xl border flex flex-col overflow-hidden shadow-sm">
+              <div className="p-3 border-b bg-slate-50 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-black uppercase text-slate-500 flex gap-2 items-center">
+                    <History size={14} /> Histórico
+                  </span>
+                  <button
+                    onClick={exportarExcel}
+                    className="text-[10px] font-bold text-emerald-600 flex items-center gap-1 hover:bg-emerald-50 px-2 py-1 rounded border border-emerald-100"
+                  >
+                    <FileSpreadsheet size={14} /> Baixar Excel
+                  </button>
+                </div>
+
+                {/* FILTROS DE DATA */}
+                <div className="flex items-center gap-2 bg-white p-2 rounded border border-slate-200 shadow-sm flex-wrap">
+                  <Filter size={12} className="text-slate-400" />
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-slate-400">
+                      DE:
+                    </span>
+                    <input
+                      type="date"
+                      value={filtroDataInicio}
+                      onChange={(e) => setFiltroDataInicio(e.target.value)}
+                      className="text-[10px] bg-slate-50 border rounded px-1 text-slate-600 uppercase"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] font-bold text-slate-400">
+                      ATÉ:
+                    </span>
+                    <input
+                      type="date"
+                      value={filtroDataFim}
+                      onChange={(e) => setFiltroDataFim(e.target.value)}
+                      className="text-[10px] bg-slate-50 border rounded px-1 text-slate-600 uppercase"
+                    />
+                  </div>
+                  <div className="w-px h-4 bg-slate-200 mx-1 hidden sm:block"></div>
+                  <button
+                    onClick={aplicarFiltroHoje}
+                    className="text-[9px] font-bold bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 flex items-center gap-1"
+                  >
+                    <Calendar size={10} /> Hoje
+                  </button>
+                  {(filtroDataInicio || filtroDataFim) && (
+                    <button
+                      onClick={limparFiltros}
+                      className="text-[9px] font-bold text-red-400 hover:text-red-600 ml-auto"
+                    >
+                      Limpar
+                    </button>
+                  )}
+                </div>
               </div>
+
               <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-slate-50/30">
-                {historico.length === 0 && (
+                {historicoFiltrado.length === 0 && (
                   <div className="text-center text-[10px] text-slate-400 py-10">
-                    Histórico vazio
+                    Nenhum registro encontrado.
                   </div>
                 )}
-                {historico.map((p) => (
+
+                {historicoFiltrado.map((p) => (
                   <div
                     key={p.id}
-                    className="bg-white px-3 py-1.5 rounded-lg border border-slate-100 flex justify-between items-center hover:border-blue-300 shadow-sm transition-all group"
+                    className="bg-white px-3 py-2 rounded-lg border border-slate-100 flex justify-between items-center hover:border-blue-300 shadow-sm transition-all group"
                   >
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-blue-700">
+                        <span className="text-[11px] font-black text-blue-700">
                           NS {p.ns}
                         </span>
-                        <span className="text-[8px] bg-slate-100 px-1 rounded text-slate-500">
+                        <span className="text-[9px] bg-slate-100 px-1 rounded text-slate-500 font-mono">
                           {p.data}
                         </span>
                       </div>
-                      <span className="text-[9px] text-slate-400 font-bold">
-                        {p.postes.length} itens{' '}
-                        {p.categoriasGlobais && p.categoriasGlobais.length > 0
-                          ? `• ${p.categoriasGlobais[0]}...`
-                          : ''}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-slate-400 font-bold">
+                          {p.postes.length} itens
+                        </span>
+                        {p.topografo && (
+                          <span className="text-[8px] font-bold bg-orange-100 text-orange-700 px-1 rounded uppercase">
+                            {p.topografo}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-sm font-black text-emerald-600">
@@ -421,12 +586,14 @@ function SistemaLevantamento() {
                       </div>
                       <button
                         onClick={() => {
-                          const n = historico.filter((x) => x.id !== p.id);
-                          setHistorico(n);
-                          localStorage.setItem(
-                            'historicoProjetos',
-                            JSON.stringify(n)
-                          );
+                          if (confirm('Deseja excluir este registro?')) {
+                            const n = historico.filter((x) => x.id !== p.id);
+                            setHistorico(n);
+                            localStorage.setItem(
+                              'historicoProjetos',
+                              JSON.stringify(n)
+                            );
+                          }
                         }}
                         className="text-slate-200 hover:text-red-500 transition-colors"
                       >
@@ -440,13 +607,13 @@ function SistemaLevantamento() {
           </div>
         ) : (
           <>
-            {/* --- ÁREA DO CROQUI SEM ROLAGEM (Solicitação: Caber na página) --- */}
+            {/* --- ÁREA DO CROQUI --- */}
             <div className="flex-1 bg-slate-200 flex items-center justify-center relative overflow-hidden p-2">
               <div className="relative shadow-2xl bg-white border border-white flex items-center justify-center w-full h-full">
-                {/* Imagem configurada com object-contain para nunca estourar a tela */}
                 <img
                   ref={imagemRef}
                   src={arquivo!}
+                  onLoad={atualizarTamanhoCanvas}
                   className="max-w-full max-h-full object-contain pointer-events-none"
                   alt="Croqui"
                 />
@@ -455,17 +622,9 @@ function SistemaLevantamento() {
                   onMouseDown={adicionarPoste}
                   onContextMenu={(e) => e.preventDefault()}
                   className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 cursor-crosshair z-10"
-                  // O estilo inline aqui ajuda a manter o canvas alinhado com a imagem renderizada
-                  style={{
-                    width: imagemRef.current ? imagemRef.current.width : '100%',
-                    height: imagemRef.current
-                      ? imagemRef.current.height
-                      : '100%',
-                  }}
                 />
               </div>
 
-              {/* Botão Voltar */}
               <button
                 onClick={() => setEtapa('upload')}
                 className="absolute top-4 left-4 bg-white px-3 py-1 rounded shadow text-[10px] font-bold border hover:bg-slate-50"
@@ -473,7 +632,6 @@ function SistemaLevantamento() {
                 ← VOLTAR
               </button>
 
-              {/* --- LEGENDA NO CANTO INFERIOR ESQUERDO (Solicitação Print 1) --- */}
               <div className="absolute bottom-4 left-4 flex gap-3 bg-slate-800/90 text-white px-3 py-2 rounded-lg text-[9px] font-bold backdrop-blur-sm border border-white/10 shadow-xl pointer-events-none select-none">
                 <div className="flex items-center gap-1">
                   <div className="w-2 h-2 bg-emerald-500 rounded-sm" />{' '}
@@ -490,8 +648,7 @@ function SistemaLevantamento() {
               </div>
             </div>
 
-            {/* --- RESUMO LATERAL REDUZIDO (Solicitação Print 4) --- */}
-            {/* Largura reduzida para w-56 e fonte menor */}
+            {/* --- RESUMO LATERAL --- */}
             <aside className="w-56 bg-white border-l flex flex-col z-20 shrink-0 shadow-sm">
               <div className="p-3 bg-slate-50 border-b flex flex-col">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -500,9 +657,11 @@ function SistemaLevantamento() {
                 <span className="text-xs font-bold text-blue-700 font-mono mt-1">
                   {nsInput || '---'}
                 </span>
+                <span className="text-[9px] font-bold text-orange-600 mt-1">
+                  {topografoSelecionado || 'Topógrafo ñ selecionado'}
+                </span>
               </div>
 
-              {/* Lista de Pontos */}
               <div className="flex-1 overflow-y-auto p-2 space-y-1 bg-slate-50/20">
                 {postes.map((p, i) => (
                   <div
@@ -539,7 +698,6 @@ function SistemaLevantamento() {
                 ))}
               </div>
 
-              {/* Painel Totalizador Pequeno */}
               <div className="p-3 bg-slate-900 text-white">
                 <div className="flex justify-between items-end mb-2">
                   <span className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">
