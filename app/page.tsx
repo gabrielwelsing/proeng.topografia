@@ -21,6 +21,10 @@ import {
   useUser,
 } from '@clerk/nextjs';
 
+// Bibliotecas para manipulação de PDF
+import * as pdfjsLib from 'pdfjs-dist';
+import jsPDF from 'jspdf';
+
 // --- CONFIGURAÇÕES ---
 const PRECO_PROJETADO = 0.35;
 const PRECO_EXISTENTE = 0.2;
@@ -96,6 +100,10 @@ function SistemaLevantamento() {
 
   useEffect(() => {
     setIsMounted(true);
+
+    // Configuração do Worker do PDF.js para leitura
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
     if (typeof window !== 'undefined') {
       const scriptId = 'xlsx-script';
       if (!document.getElementById(scriptId)) {
@@ -137,13 +145,12 @@ function SistemaLevantamento() {
     return '';
   };
 
-  // --- LÓGICA DO CANVAS (Sincronização de Tamanho) ---
+  // --- LÓGICA DO CANVAS ---
   const atualizarTamanhoCanvas = () => {
     if (etapa === 'desenho' && canvasRef.current && imagemRef.current) {
       const cvs = canvasRef.current;
       const img = imagemRef.current;
 
-      // O canvas deve ter EXATAMENTE o tamanho em pixels que a imagem está ocupando na tela
       if (img.clientWidth > 0 && img.clientHeight > 0) {
         cvs.width = img.clientWidth;
         cvs.height = img.clientHeight;
@@ -229,13 +236,68 @@ function SistemaLevantamento() {
     );
   }
 
-  const handleUpload = (e: any) => {
+  // --- LÓGICA DE UPLOAD INTELIGENTE (IMAGEM -> PDF ou PDF -> LEITURA) ---
+  const handleUpload = async (e: any) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setArquivo(URL.createObjectURL(file));
-      setPostes([]);
-      setCategoriasSelecionadas([]);
-      setTopografoSelecionado('');
+    if (!file) return;
+
+    // Resetar estados
+    setPostes([]);
+    setCategoriasSelecionadas([]);
+    setTopografoSelecionado('');
+
+    // --- CASO 1: SE FOR PDF (Lê e desenha) ---
+    if (file.type === 'application/pdf') {
+      try {
+        const url = URL.createObjectURL(file);
+        const loadingTask = pdfjsLib.getDocument(url);
+        const pdf = await loadingTask.promise;
+        const page = await pdf.getPage(1); // Pega 1ª página
+
+        const viewport = page.getViewport({ scale: 2 }); // Alta resolução
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+
+        if (context) {
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: context, viewport: viewport })
+            .promise;
+
+          // Define o PDF renderizado como fundo para o app
+          setArquivo(canvas.toDataURL('image/png'));
+          setEtapa('desenho');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao ler PDF.');
+      }
+    }
+
+    // --- CASO 2: SE FOR IMAGEM (Converte p/ PDF, Baixa e segue) ---
+    else if (file.type.startsWith('image/')) {
+      // 1. Cria URL da imagem para o app usar
+      const imgUrl = URL.createObjectURL(file);
+
+      // 2. Converte para PDF e força o download
+      const imagem = new Image();
+      imagem.src = imgUrl;
+      imagem.onload = () => {
+        const pdf = new jsPDF();
+        const width = pdf.internal.pageSize.getWidth();
+        const height = pdf.internal.pageSize.getHeight();
+
+        // Calcula proporção para caber na folha A4
+        const imgProps = pdf.getImageProperties(imagem);
+        const pdfHeight = (imgProps.height * width) / imgProps.width;
+
+        pdf.addImage(imagem, 'PNG', 0, 0, width, pdfHeight);
+        pdf.save('croqui_convertido.pdf'); // <--- DOWNLOAD AUTOMÁTICO
+      };
+
+      // 3. Continua o app normalmente
+      setArquivo(imgUrl);
       setEtapa('desenho');
     }
   };
@@ -244,7 +306,6 @@ function SistemaLevantamento() {
     e.preventDefault();
     if (!canvasRef.current) return;
 
-    // Método direto e robusto (offsetX pega a coordenada dentro do elemento clicado)
     const x = e.nativeEvent.offsetX;
     const y = e.nativeEvent.offsetY;
 
@@ -256,7 +317,6 @@ function SistemaLevantamento() {
   };
 
   const salvarProjeto = () => {
-    // --- TRAVAS DE SEGURANÇA ---
     if (nsInput.length !== 10)
       return alert('ERRO: A NS deve conter exatamente 10 dígitos.');
     if (categoriasSelecionadas.length === 0)
@@ -368,11 +428,10 @@ function SistemaLevantamento() {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden font-sans">
-      {/* --- HEADER OTIMIZADO (SEM SCROLL) --- */}
+      {/* --- HEADER OTIMIZADO --- */}
       <header className="h-auto min-h-[4.5rem] bg-white border-b flex items-start justify-between px-4 py-2 shrink-0 z-30 shadow-sm gap-4 transition-all">
-        {/* BLOCO 1: LOGO + NS (Esquerda) */}
+        {/* BLOCO 1: LOGO + NS */}
         <div className="flex flex-col gap-2 shrink-0 border-r border-slate-100 pr-4">
-          {/* Logo */}
           <div className="flex items-center gap-2 text-blue-900">
             <MapPin size={18} className="text-blue-700" />
             <h1 className="font-black text-sm tracking-tighter uppercase leading-none">
@@ -380,7 +439,6 @@ function SistemaLevantamento() {
             </h1>
           </div>
 
-          {/* NS Input */}
           {etapa === 'desenho' && (
             <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded px-2 py-1">
               <span className="text-[10px] font-bold text-slate-400">NS:</span>
@@ -395,10 +453,9 @@ function SistemaLevantamento() {
           )}
         </div>
 
-        {/* BLOCO 2: CATEGORIAS E TOPÓGRAFOS (Centro Expandido) */}
+        {/* BLOCO 2: CATEGORIAS E TOPÓGRAFOS */}
         {etapa === 'desenho' ? (
           <div className="flex-1 flex flex-col gap-1.5 justify-center">
-            {/* Linha Superior: Categorias */}
             <div className="flex flex-wrap gap-1 items-center">
               <span className="text-[9px] font-bold text-slate-300 uppercase mr-1">
                 Cat:
@@ -423,8 +480,6 @@ function SistemaLevantamento() {
                 </button>
               ))}
             </div>
-
-            {/* Linha Inferior: Topógrafos */}
             <div className="flex flex-wrap gap-1 items-center">
               <span className="text-[9px] font-bold text-slate-300 uppercase mr-1">
                 Top:
@@ -448,7 +503,7 @@ function SistemaLevantamento() {
           <div className="flex-1"></div>
         )}
 
-        {/* BLOCO 3: BOTÕES DE AÇÃO (Direita) */}
+        {/* BLOCO 3: BOTÕES DE AÇÃO */}
         <div className="flex flex-col items-end gap-2 shrink-0 pl-2">
           <UserButton
             afterSignOutUrl="/"
@@ -471,10 +526,12 @@ function SistemaLevantamento() {
       <main className="flex-1 flex overflow-hidden">
         {etapa === 'upload' ? (
           <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full max-w-[1400px] mx-auto">
-            {/* NOVO LEVANTAMENTO (35%) */}
+            {/* NOVO LEVANTAMENTO */}
             <div className="lg:col-span-4 border-2 border-dashed border-slate-300 rounded-3xl bg-white flex flex-col items-center justify-center relative hover:bg-blue-50 transition-all group cursor-pointer shadow-sm">
+              {/* ACEITA PDF E IMAGENS */}
               <input
                 type="file"
+                accept="image/*,application/pdf"
                 onChange={handleUpload}
                 className="absolute inset-0 opacity-0 cursor-pointer z-10"
               />
@@ -486,11 +543,11 @@ function SistemaLevantamento() {
                 Novo Levantamento
               </h2>
               <p className="text-slate-400 text-xs text-center px-4">
-                Carregue o croqui aqui
+                Carregue o croqui (IMG ou PDF)
               </p>
             </div>
 
-            {/* HISTÓRICO (65%) */}
+            {/* HISTÓRICO */}
             <div className="lg:col-span-8 bg-white rounded-3xl border flex flex-col overflow-hidden shadow-sm">
               <div className="p-3 border-b bg-slate-50 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
