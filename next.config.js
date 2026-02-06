@@ -1,11 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  webpack: (config) => {
-    // Isso diz pro Next.js ignorar módulos de servidor quando estiver no navegador
-    config.resolve.alias.canvas = false;
-    config.resolve.alias.encoding = false;
-    return config;
-  },
+  // Se você tiver configurações de imagem, coloque aqui.
+  // Exemplo (se precisar de imagens externas):
+  // images: {
+  //   remotePatterns: [
+  //     {
+  //       protocol: 'https',
+  //       hostname: 'exemplo.com',
+  //     },
+  //   ],
+  // },
 };
 
-export default nextConfig;
+module.exports = nextConfig;
