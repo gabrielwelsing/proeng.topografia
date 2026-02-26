@@ -30,8 +30,15 @@ export default function LoginPage() {
         try {
             await signInWithEmailAndPassword(auth, email, password);
             router.replace('/hub');
-        } catch {
-            setError('Credenciais inválidas ou erro no login.');
+        } catch (err: any) {
+            console.error("Login Error:", err);
+            if (err.code === 'auth/invalid-api-key') {
+                setError('Erro Interno: Chave de API inválida na Vercel.');
+            } else if (err.code === 'auth/unauthorized-domain') {
+                setError('Domínio não autorizado no Firebase console.');
+            } else {
+                setError('Credenciais inválidas ou erro no login. (' + (err.code || 'Erro desconhecido') + ')');
+            }
         } finally { setLoading(false); }
     };
 
