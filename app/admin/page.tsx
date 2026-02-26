@@ -41,11 +41,13 @@ export default function AdminPage() {
             snapshot.forEach((docSnap) => {
                 list.push({ id: docSnap.id, ...docSnap.data() } as UserData);
             });
-            // Sort: pending first, then by name
+            // Sort: pending first, then by most recent (createdAt desc)
             list.sort((a, b) => {
                 if (a.status === 'pending' && b.status !== 'pending') return -1;
                 if (a.status !== 'pending' && b.status === 'pending') return 1;
-                return (a.name || '').localeCompare(b.name || '');
+                const dateA = a.createdAt?.toMillis?.() || 0;
+                const dateB = b.createdAt?.toMillis?.() || 0;
+                return dateB - dateA;
             });
             setUsersList(list);
             setFetching(false);
