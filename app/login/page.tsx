@@ -79,19 +79,19 @@ export default function LoginPage() {
                     <input
                         type="text" placeholder="Nome completo" value={name}
                         onChange={e => setName(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium"
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium text-slate-800 placeholder-slate-400"
                     />
                 )}
                 <input
                     type="email" placeholder="E-mail profissional" value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium text-slate-800 placeholder-slate-400"
                 />
                 <input
                     type="password" placeholder="Senha" value={password}
                     onChange={e => setPassword(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && (isRegister ? handleRegister() : handleLogin())}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium"
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm mb-6 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-medium text-slate-800 placeholder-slate-400"
                 />
 
                 <button
