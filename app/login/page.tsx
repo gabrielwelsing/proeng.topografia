@@ -70,7 +70,7 @@ export default function LoginPage() {
                 <h1 className="text-4xl font-black text-slate-800 mb-2 tracking-tighter uppercase relative group cursor-default">
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700">Pro</span><span className="text-slate-800">Eng</span>
                 </h1>
-                <p className="text-sm font-semibold text-slate-500 mb-8">{isRegister ? 'Solicitar Acesso' : 'Portal Unificado'}</p>
+                <p className="text-sm font-semibold text-slate-500 mb-8">{isRegister ? 'Solicitar Acesso' : 'Ecossistema Pro'}</p>
 
                 {error && <p className="text-red-500 text-xs mb-4 font-bold bg-red-50 p-2 rounded">{error}</p>}
                 {successMsg && <p className="text-green-600 text-xs mb-4 font-bold bg-green-50 p-2 rounded">{successMsg}</p>}

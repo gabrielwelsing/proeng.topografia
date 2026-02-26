@@ -41,7 +41,7 @@ export default function HubPage() {
                     </div>
                     <div>
                         <h1 className="font-black text-xl text-slate-800 uppercase tracking-tight leading-none">ProEng</h1>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Portal Unificado</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ecossistema Pro</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">

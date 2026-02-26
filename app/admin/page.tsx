@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/app/firebase';
-import { collection, onSnapshot, query, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, doc, updateDoc } from 'firebase/firestore';
 import { ShieldCheck, ArrowLeft, Loader2, UserX, UserCheck, Settings } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,13 +35,22 @@ export default function AdminPage() {
     useEffect(() => {
         if (!roles?.admin) return;
 
-        const q = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
+        const q = query(collection(db, 'users'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const list: UserData[] = [];
             snapshot.forEach((docSnap) => {
                 list.push({ id: docSnap.id, ...docSnap.data() } as UserData);
             });
+            // Sort: pending first, then by name
+            list.sort((a, b) => {
+                if (a.status === 'pending' && b.status !== 'pending') return -1;
+                if (a.status !== 'pending' && b.status === 'pending') return 1;
+                return (a.name || '').localeCompare(b.name || '');
+            });
             setUsersList(list);
+            setFetching(false);
+        }, (error) => {
+            console.error('Erro ao buscar usuários:', error);
             setFetching(false);
         });
 
@@ -149,17 +158,17 @@ export default function AdminPage() {
                                             )}
                                         </div>
 
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                            <label className="flex items-center gap-1 text-xs font-bold cursor-pointer hover:bg-white p-1 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <input type="checkbox" checked={!!usr.roles?.conversao} onChange={() => toggleRole(usr.id, usr.roles, 'conversao')} className="rounded text-blue-500 focus:ring-blue-500" />
+                                        <div className="flex flex-wrap gap-3 mt-2">
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                <input type="checkbox" checked={!!usr.roles?.conversao} onChange={() => toggleRole(usr.id, usr.roles, 'conversao')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
                                                 Conversor
                                             </label>
-                                            <label className="flex items-center gap-1 text-xs font-bold cursor-pointer hover:bg-white p-1 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <input type="checkbox" checked={!!usr.roles?.topografia} onChange={() => toggleRole(usr.id, usr.roles, 'topografia')} className="rounded text-blue-500 focus:ring-blue-500" />
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                <input type="checkbox" checked={!!usr.roles?.topografia} onChange={() => toggleRole(usr.id, usr.roles, 'topografia')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
                                                 Contar US
                                             </label>
-                                            <label className="flex items-center gap-1 text-xs font-bold cursor-pointer hover:bg-white p-1 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500" />
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
                                                 Admin
                                             </label>
                                         </div>
