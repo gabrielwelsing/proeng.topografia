@@ -7,6 +7,15 @@ import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
+// Debug environment variables presence (Safe)
+if (typeof window !== 'undefined') {
+  console.log("Firebase Config Status:", {
+    hasKey: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    hasDomain: !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    env: process.env.NODE_ENV
+  });
+}
+
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "dummy_api_key",
