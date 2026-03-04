@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numerar Postes - Ecossistema PRO</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f4f6f8;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .toolbar {
+            background: #fff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .summary-bar {
+            background: #fff;
+            padding: 10px 18px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 12px;
+            width: 100%;
+            max-width: 1100px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            color: #fff;
+            font-weight: bold;
+            font-size: 13px;
+        }
+
+        .badge-green {
+            background-color: #2e8b3e;
+        }
+
+        .badge-orange {
+            background-color: #e67e22;
+        }
+
+        .badge-total {
+            background-color: #34495e;
+        }
+
+        input[type="file"] {
+            max-width: 220px;
+            font-size: 13px;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 7px 14px;
+            border: none;
+            border-radius: 4px;
+            background-color: #0056b3;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #004494;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .info {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .legend {
+            font-size: 12px;
+            color: #666;
+            line-height: 1.5;
+        }
+
+        #pdf-wrapper {
+            position: relative;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #pdf-canvas {
+            display: block;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="toolbar">
+        <div class="controls">
+            <input type="file" id="file-input" accept="application/pdf" />
+            <button id="prev-page" disabled>◀ Anterior</button>
+            <span id="page-num" class="info">Pág: 0 / 0</span>
+            <button id="next-page" disabled>Próxima ▶</button>
+        </div>
+        <div class="legend">
+            <b>Esq:</b> Instalado (verde) &nbsp;|&nbsp;
+            <b>Dir:</b> Modificado (laranja) &nbsp;|&nbsp;
+            <b>Ctrl+Esq:</b> Desfazer
+        </div>
+        <div class="controls">
+            <button id="download-btn" disabled>Baixar PDF Marcado</button>
+        </div>
+    </div>
+
+    <div class="summary-bar">
+        <div class="summary-item">
+            <span class="badge badge-green" id="count-installed">0</span>
+            <span>Instalados (1 US) =</span>
+            <strong id="val-installed">0,00 US</strong>
+        </div>
+        <div class="summary-item">
+            <span class="badge badge-orange" id="count-modified">0</span>
+            <span>Modificados (1,7 US) =</span>
+            <strong id="val-modified">0,00 US</strong>
+        </div>
+        <div class="summary-item">
+            <span class="badge badge-total" id="count-total">0</span>
+            <span>Total Postes =</span>
+            <strong id="val-total">0,00 US</strong>
+        </div>
+    </div>
+
+    <div id="pdf-wrapper">
+        <canvas id="pdf-canvas"></canvas>
+        <canvas id="overlay-canvas"></canvas>
+    </div>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let originalPdfBytes = null;
+
+        // Cada ponto: { page, pdfX, pdfY, label, type: 'installed'|'modified' }
+        let points = [];
+        let poleCounter = 1;
+
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const overlayCtx = overlayCanvas.getContext('2d');
+        let currentViewport = null;
+
+        const fileInput = document.getElementById('file-input');
+        const prevBtn = document.getElementById('prev-page');
+        const nextBtn = document.getElementById('next-page');
+        const downloadBtn = document.getElementById('download-btn');
+        const pageNumSpan = document.getElementById('page-num');
+
+        // Elementos de resumo
+        const countInstalled = document.getElementById('count-installed');
+        const countModified = document.getElementById('count-modified');
+        const countTotal = document.getElementById('count-total');
+        const valInstalled = document.getElementById('val-installed');
+        const valModified = document.getElementById('val-modified');
+        const valTotal = document.getElementById('val-total');
+
+        // ---- Atualiza barra de resumo ----
+        function updateSummary() {
+            const installed = points.filter(p => p.type === 'installed').length;
+            const modified = points.filter(p => p.type === 'modified').length;
+            const total = installed + modified;
+            const vInst = installed * 1;
+            const vMod = modified * 1.7;
+            const vTot = vInst + vMod;
+
+            countInstalled.textContent = installed;
+            countModified.textContent = modified;
+            countTotal.textContent = total;
+            valInstalled.textContent = vInst.toFixed(2).replace('.', ',') + ' US';
+            valModified.textContent = vMod.toFixed(2).replace('.', ',') + ' US';
+            valTotal.textContent = vTot.toFixed(2).replace('.', ',') + ' US';
+        }
+
+        // ---- Upload de arquivo ----
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                alert('Por favor, selecione um arquivo PDF válido.');
+                return;
+            }
+            const fileReader = new FileReader();
+            fileReader.onload = function () {
+                const buffer = this.result;
+                originalPdfBytes = buffer.slice(0);
+                const typedarray = new Uint8Array(buffer);
+
+                points = [];
+                poleCounter = 1;
+                pageNum = 1;
+                updateSummary();
+
+                pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+                    pdfDoc = pdf;
+                    pageNumSpan.textContent = `Pág: ${pageNum} / ${pdfDoc.numPages}`;
+                    prevBtn.disabled = false;
+                    nextBtn.disabled = false;
+                    downloadBtn.disabled = false;
+                    renderPage(pageNum);
+                });
+            };
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        // ---- Renderização ----
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(page => {
+                const scale = 1.5;
+                const viewport = page.getViewport({ scale });
+                currentViewport = viewport;
+
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                overlayCanvas.height = viewport.height;
+                overlayCanvas.width = viewport.width;
+
+                const renderTask = page.render({ canvasContext: ctx, viewport });
+                renderTask.promise.then(() => {
+                    pageRendering = false;
+                    drawOverlay();
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+            pageNumSpan.textContent = `Pág: ${num} / ${pdfDoc.numPages}`;
+        }
+
+        function queueRenderPage(num) {
+            if (pageRendering) { pageNumPending = num; } else { renderPage(num); }
+        }
+
+        prevBtn.addEventListener('click', () => { if (pageNum <= 1) return; pageNum--; queueRenderPage(pageNum); });
+        nextBtn.addEventListener('click', () => { if (pageNum >= pdfDoc.numPages) return; pageNum++; queueRenderPage(pageNum); });
+
+        // ---- Desenho do Overlay com caixas coloridas ----
+        function drawOverlay() {
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            overlayCtx.font = "bold 13px Arial";
+            overlayCtx.textBaseline = "middle";
+
+            points.forEach(pt => {
+                if (pt.page !== pageNum) return;
+
+                const sc = currentViewport.convertToViewportPoint(pt.pdfX, pt.pdfY);
+                const x = sc[0];
+                const y = sc[1];
+                const text = pt.label;
+                const textW = overlayCtx.measureText(text).width;
+
+                const padX = 4, padY = 3;
+                const boxW = textW + padX * 2;
+                const boxH = 16;
+
+                // Cor da caixa: verde para instalado, laranja para modificado
+                overlayCtx.fillStyle = pt.type === 'installed' ? 'rgba(46, 139, 62, 0.85)' : 'rgba(230, 126, 34, 0.85)';
+                overlayCtx.fillRect(x, y - boxH, boxW, boxH);
+
+                // Texto branco dentro da caixa
+                overlayCtx.fillStyle = '#fff';
+                overlayCtx.fillText(text, x + padX, y - boxH / 2);
+            });
+        }
+
+        // ---- Interação com o Mouse ----
+
+        // Clique Esquerdo: Instalado (verde) OU Ctrl+Esq = Desfazer
+        overlayCanvas.addEventListener('click', (e) => {
+            if (!pdfDoc || !currentViewport) return;
+
+            // Ctrl+Click = Desfazer
+            if (e.ctrlKey) {
+                if (points.length === 0) return;
+                points.pop();
+                poleCounter--;
+                drawOverlay();
+                updateSummary();
+                return;
+            }
+
+            const rect = overlayCanvas.getBoundingClientRect();
+            const pdfCoords = currentViewport.convertToPdfPoint(e.clientX - rect.left, e.clientY - rect.top);
+
+            points.push({
+                page: pageNum,
+                pdfX: pdfCoords[0],
+                pdfY: pdfCoords[1],
+                label: `P${poleCounter}`,
+                type: 'installed'
+            });
+            poleCounter++;
+            drawOverlay();
+            updateSummary();
+        });
+
+        // Clique Direito: Modificado (laranja)
+        overlayCanvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (!pdfDoc || !currentViewport) return;
+
+            const rect = overlayCanvas.getBoundingClientRect();
+            const pdfCoords = currentViewport.convertToPdfPoint(e.clientX - rect.left, e.clientY - rect.top);
+
+            points.push({
+                page: pageNum,
+                pdfX: pdfCoords[0],
+                pdfY: pdfCoords[1],
+                label: `P${poleCounter}`,
+                type: 'modified'
+            });
+            poleCounter++;
+            drawOverlay();
+            updateSummary();
+        });
+
+        // ---- Exportação PDF (saída INALTERADA — Helvetica 7 preto) ----
+        downloadBtn.addEventListener('click', async () => {
+            if (!originalPdfBytes || points.length === 0) {
+                alert("Nenhuma marcação foi feita no documento ainda.");
+                return;
+            }
+
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = "Processando arquivo...";
+
+            try {
+                const pdfLibDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
+                const helveticaFont = await pdfLibDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const rgb = PDFLib.rgb;
+                const pages = pdfLibDoc.getPages();
+
+                points.forEach(pt => {
+                    const targetPage = pages[pt.page - 1];
+                    targetPage.drawText(pt.label, {
+                        x: pt.pdfX + 2,
+                        y: pt.pdfY + 2,
+                        size: 7,
+                        font: helveticaFont,
+                        color: rgb(0, 0, 0)
+                    });
+                });
+
+                const modifiedPdfBytes = await pdfLibDoc.save({ updateFieldAppearances: false });
+
+                const blob = new Blob([modifiedPdfBytes], { type: "application/pdf" });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = "Projeto_Postes_Contados.pdf";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+            } catch (err) {
+                console.error("Erro interno ao codificar o PDF:", err);
+                alert("Erro ao processar o PDF:\n" + (err && err.message ? err.message : String(err)));
+            } finally {
+                downloadBtn.textContent = "Baixar PDF Marcado";
+                downloadBtn.disabled = false;
+            }
+        });
+
+    </script>
+</body>
+
+</html>

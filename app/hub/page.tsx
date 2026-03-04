@@ -2,7 +2,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { LogOut, Image as ImageIcon, Map, ShieldAlert, Loader2 } from 'lucide-react';
+import { LogOut, Image as ImageIcon, Map, ShieldAlert, Loader2, FileText } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/app/firebase';
 import Link from 'next/link';
@@ -30,7 +30,7 @@ export default function HubPage() {
         router.replace('/login');
     };
 
-    const hasNoRoles = !roles.admin && !roles.conversao && !roles.topografia;
+    const hasNoRoles = !roles.admin && !roles.conversao && !roles.topografia && !roles.numerarPostes;
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -73,7 +73,7 @@ export default function HubPage() {
                     <div className="w-full">
                         <h2 className="text-2xl font-black text-slate-800 mb-8 text-center">Selecione o Módulo</h2>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
 
                             {(roles.admin || roles.topografia) && (
                                 <Link href="/topografia" className="group block">
@@ -100,6 +100,21 @@ export default function HubPage() {
                                         <h3 className="text-xl font-black text-slate-800 mb-2">Conversor de Fotos</h3>
                                         <p className="text-slate-500 text-sm">
                                             Ferramenta de conversão em lote de imagens arrastadas para relatórios PDF.
+                                        </p>
+                                    </div>
+                                </a>
+                            )}
+
+                            {(roles.admin || roles.numerarPostes) && (
+                                <a href="/numerar-postes/index.html" className="group block">
+                                    <div className="bg-white border-2 border-slate-100 hover:border-amber-500 rounded-3xl p-8 transition-all hover:shadow-xl hover:-translate-y-1 h-full flex flex-col items-center text-center cursor-pointer relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full -z-10 group-hover:scale-110 transition-transform"></div>
+                                        <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform group-hover:bg-amber-600 group-hover:text-white shadow-inner">
+                                            <FileText size={32} />
+                                        </div>
+                                        <h3 className="text-xl font-black text-slate-800 mb-2">Numerar Postes</h3>
+                                        <p className="text-slate-500 text-sm">
+                                            Contagem e numeração de postes em projetos de rede PDF com exportação marcada.
                                         </p>
                                     </div>
                                 </a>

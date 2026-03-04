@@ -8,6 +8,7 @@ import { auth, db } from '@/app/firebase';
 export type UserRoles = {
     conversao: boolean;
     topografia: boolean;
+    numerarPostes: boolean;
     admin: boolean;
 };
 
@@ -43,8 +44,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         const isApproved = data.status === 'approved';
 
                         setRoles({
-                            conversao: !!data.roles?.conversao || isApproved, // Se aprovado no antigo, tem acesso ao conversor
+                            conversao: !!data.roles?.conversao || isApproved,
                             topografia: !!data.roles?.topografia,
+                            numerarPostes: !!data.roles?.numerarPostes,
                             admin: !!data.roles?.admin || isAdminEmail,
                         });
                     } else {
@@ -52,12 +54,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         setRoles({
                             conversao: isAdminEmail,
                             topografia: isAdminEmail,
+                            numerarPostes: isAdminEmail,
                             admin: isAdminEmail
                         });
                     }
                 } catch (error) {
                     console.error("Error fetching user roles:", error);
-                    setRoles({ conversao: false, topografia: false, admin: false });
+                    setRoles({ conversao: false, topografia: false, numerarPostes: false, admin: false });
                 }
             } else {
                 setRoles(null);
