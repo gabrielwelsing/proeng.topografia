@@ -5,145 +5,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Numerar Postes - Ecossistema PRO</title>
+    <!-- Tailwind via CDN para recriar o visual moderno rapidamente sem build extra -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #f4f6f8;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        .toolbar {
-            background: #fff;
-            padding: 12px 18px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 10px;
-            width: 100%;
-            max-width: 1100px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .controls {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .summary-bar {
-            background: #fff;
-            padding: 10px 18px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 12px;
-            width: 100%;
-            max-width: 1100px;
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .summary-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 4px;
-            color: #fff;
-            font-weight: bold;
-            font-size: 13px;
-        }
-
-        .badge-green {
-            background-color: #2e8b3e;
-        }
-
-        .badge-orange {
-            background-color: #e67e22;
-        }
-
-        .badge-total {
-            background-color: #34495e;
-        }
-
-        input[type="file"] {
-            max-width: 220px;
-            font-size: 13px;
-        }
-
-        button {
-            cursor: pointer;
-            padding: 7px 14px;
-            border: none;
-            border-radius: 4px;
-            background-color: #0056b3;
-            color: white;
-            font-weight: bold;
-            font-size: 13px;
-            transition: 0.2s;
-        }
-
-        button:hover {
-            background-color: #004494;
-        }
-
-        button:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-        }
-
-        .btn-secondary {
-            background-color: #6c757d;
-        }
-
-        .btn-secondary:hover {
-            background-color: #5a6268;
-        }
-
-        .flex-gap {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .info {
-            font-size: 13px;
-            color: #555;
-        }
-
-        .legend {
-            font-size: 12px;
-            color: #666;
-            line-height: 1.5;
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+            background-color: #f8fafc; /* bg-slate-50 */
         }
 
         #pdf-wrapper {
             position: relative;
-            border: 1px solid #ccc;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background-color: #f1f5f9; /* bg-slate-100 placeholder */
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            margin: 0 auto;
         }
 
         #pdf-canvas {
@@ -156,54 +35,112 @@
             left: 0;
             cursor: crosshair;
         }
+
+        /* Custom scrollbar para ficar elegante */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
     </style>
 </head>
 
-<body>
+<body class="p-4 md:p-6 lg:p-8 flex flex-col items-center min-h-screen text-slate-800">
 
-    <div class="toolbar">
-        <div class="controls flex-gap">
-            <button id="btn-back" class="btn-secondary" title="Retornar ao HUB">◀ Portal</button>
-            <button id="btn-new" class="btn-secondary" title="Limpar projeto atual">Novo Projeto</button>
-            <input type="file" id="file-input" accept="application/pdf" />
-            <button id="prev-page" disabled>◀ Anterior</button>
-            <span id="page-num" class="info">Pág: 0 / 0</span>
-            <button id="next-page" disabled>Próxima ▶</button>
+    <!-- Cabeçalho (Estilo Ecossistema PRO) -->
+    <header class="w-full max-w-5xl bg-white border border-slate-200 shadow-sm rounded-2xl px-6 py-4 flex justify-between items-center mb-6">
+        <div class="flex items-center gap-3">
+            <div class="bg-amber-500 text-white p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            </div>
+            <div>
+                <h1 class="font-black text-xl text-slate-800 uppercase tracking-tight leading-none">Numerar Postes</h1>
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ecossistema Pro</span>
+            </div>
         </div>
-        <div class="legend">
-            <b>Esq:</b> Instalado (verde) &nbsp;|&nbsp;
-            <b>Dir:</b> Modificado (laranja) &nbsp;|&nbsp;
-            <b>Ctrl+Esq:</b> Desfazer
+        <button id="btn-back" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-colors bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg">
+            <span>◀</span> Voltar ao Hub
+        </button>
+    </header>
+
+    <!-- Toolbar e Controles -->
+    <div class="w-full max-w-5xl bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4 flex flex-col md:flex-row justify-between items-center gap-4">
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <button id="btn-new" class="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-lg transition-colors border border-slate-200 shadow-sm">Novo Projeto</button>
+            
+            <div class="relative overflow-hidden inline-[mb-2]">
+                <input type="file" id="file-input" accept="application/pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer min-w-[200px]" />
+            </div>
         </div>
-        <div class="controls">
-            <button id="download-btn" disabled>Baixar PDF Marcado</button>
+
+        <div class="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 shadow-inner">
+            <button id="prev-page" class="px-3 py-1.5 text-slate-600 hover:bg-white hover:shadow rounded-md font-bold text-sm disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none transition-all" disabled>◀ Ant</button>
+            <span id="page-num" class="text-xs font-bold text-slate-500 w-24 text-center">Pág: 0 / 0</span>
+            <button id="next-page" class="px-3 py-1.5 text-slate-600 hover:bg-white hover:shadow rounded-md font-bold text-sm disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:shadow-none transition-all" disabled>Próx ▶</button>
+        </div>
+
+        <div>
+            <button id="download-btn" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm px-5 py-2.5 rounded-xl shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+                Baixar PDF Marcado
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Barra de Indicadores (Resumo) -->
+    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white border-2 border-emerald-100 rounded-2xl p-4 flex items-center shadow-sm">
+            <div class="bg-emerald-500 text-white rounded-full w-10 h-10 flex items-center justify-center font-black text-sm mr-4" id="count-installed">0</div>
+            <div>
+                <p class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Qtd. Postes (Botão Esq)</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-xs text-slate-500 font-medium pb-0.5">Instalado =</span>
+                    <span class="text-lg font-black text-slate-800 leading-none" id="val-installed">0,00 US</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border-2 border-orange-100 rounded-2xl p-4 flex items-center shadow-sm">
+            <div class="bg-orange-500 text-white rounded-full w-10 h-10 flex items-center justify-center font-black text-sm mr-4" id="count-modified">0</div>
+            <div>
+                <p class="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1">Qtd. Postes (Botão Dir)</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-xs text-slate-500 font-medium pb-0.5">Modificado =</span>
+                    <span class="text-lg font-black text-slate-800 leading-none" id="val-modified">0,00 US</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 flex items-center shadow-md">
+            <div class="bg-white text-slate-900 rounded-full w-10 h-10 flex items-center justify-center font-black text-sm mr-4" id="count-total">0</div>
+            <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total Geral (Ctrl+CLick = Desfazer)</p>
+                <div class="flex items-end gap-2">
+                    <span class="text-xs text-slate-400 font-medium pb-0.5">Soma Total =</span>
+                    <span class="text-lg font-black text-white leading-none" id="val-total">0,00 US</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="summary-bar">
-        <div class="summary-item">
-            <span class="badge badge-green" id="count-installed">0</span>
-            <span>Instalados (1 US) =</span>
-            <strong id="val-installed">0,00 US</strong>
-        </div>
-        <div class="summary-item">
-            <span class="badge badge-orange" id="count-modified">0</span>
-            <span>Modificados (1,7 US) =</span>
-            <strong id="val-modified">0,00 US</strong>
-        </div>
-        <div class="summary-item">
-            <span class="badge badge-total" id="count-total">0</span>
-            <span>Total Postes =</span>
-            <strong id="val-total">0,00 US</strong>
-        </div>
-    </div>
-
+    <!-- Área de Visualização do PDF -->
     <div id="pdf-wrapper">
         <canvas id="pdf-canvas"></canvas>
         <canvas id="overlay-canvas"></canvas>
     </div>
 
     <script>
+        // Configurar o Worker do PDF.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
         let pdfDoc = null;
@@ -355,7 +292,7 @@
         // ---- Desenho do Overlay com caixas coloridas ----
         function drawOverlay() {
             overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            overlayCtx.font = "bold 13px Arial";
+            overlayCtx.font = "bold 13px Inter, sans-serif";
             overlayCtx.textBaseline = "middle";
 
             points.forEach(pt => {
@@ -367,16 +304,19 @@
                 const text = pt.label;
                 const textW = overlayCtx.measureText(text).width;
 
-                const padX = 4, padY = 3;
+                const padX = 5, padY = 4;
                 const boxW = textW + padX * 2;
-                const boxH = 16;
+                const boxH = 20; // Um pouco maior no novo visual
 
                 // Cor da caixa: verde para instalado, laranja para modificado
-                overlayCtx.fillStyle = pt.type === 'installed' ? 'rgba(46, 139, 62, 0.85)' : 'rgba(230, 126, 34, 0.85)';
-                overlayCtx.fillRect(x, y - boxH, boxW, boxH);
+                overlayCtx.fillStyle = pt.type === 'installed' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(249, 115, 22, 0.95)'; // Tailwind colors
+                
+                overlayCtx.beginPath();
+                overlayCtx.roundRect(x, y - boxH, boxW, boxH, 4); // Bordas arredondadas
+                overlayCtx.fill();
 
                 // Texto branco dentro da caixa
-                overlayCtx.fillStyle = '#fff';
+                overlayCtx.fillStyle = '#ffffff';
                 overlayCtx.fillText(text, x + padX, y - boxH / 2);
             });
         }
@@ -388,10 +328,10 @@
             if (!pdfDoc || !currentViewport) return;
 
             // Ctrl+Click = Desfazer
-            if (e.ctrlKey) {
+            if (e.ctrlKey || e.metaKey) {
                 if (points.length === 0) return;
                 points.pop();
-                poleCounter--;
+                poleCounter = points.length === 0 ? 1 : Math.max(...points.map(p => parseInt(p.label.replace('P', '')))) + 1;
                 drawOverlay();
                 updateSummary();
                 return;
@@ -440,7 +380,8 @@
             }
 
             downloadBtn.disabled = true;
-            downloadBtn.textContent = "Processando arquivo...";
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = "Processando arquivo...";
 
             try {
                 const pdfLibDoc = await PDFLib.PDFDocument.load(originalPdfBytes, { ignoreEncryption: true });
@@ -473,12 +414,11 @@
                 console.error("Erro interno ao codificar o PDF:", err);
                 alert("Erro ao processar o PDF:\n" + (err && err.message ? err.message : String(err)));
             } finally {
-                downloadBtn.textContent = "Baixar PDF Marcado";
+                downloadBtn.innerHTML = originalText;
                 downloadBtn.disabled = false;
             }
         });
 
     </script>
 </body>
-
 </html>

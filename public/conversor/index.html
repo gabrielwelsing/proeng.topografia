@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 
 <head>
@@ -647,29 +647,59 @@
             taskQueue.prepend(taskItem);
 
             try {
-                const doc = new jsPDF();
+                // A4 Portrait 210 x 297 mm
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
+                
+                // Grid settings (2x2)
+                const margin = 10;
+                const spacing = 10;
+                
+                // Effective width/height for one image box
+                const boxW = (pageWidth - (margin * 2) - spacing) / 2;
+                const boxH = (pageHeight - (margin * 2) - spacing) / 2;
 
                 for (let i = 0; i < files.length; i++) {
                     const imgData = await readFileAsDataURL(files[i]);
                     const imgProps = await getImageProps(imgData);
 
-                    if (i > 0) doc.addPage();
-
-                    const ratio = imgProps.width / imgProps.height;
-                    let w = pageWidth - 20;
-                    let h = w / ratio;
-
-                    if (h > pageHeight - 20) {
-                        h = pageHeight - 20;
-                        w = h * ratio;
+                    // Add new page if we filled 4 images
+                    if (i > 0 && i % 4 === 0) {
+                        doc.addPage();
                     }
 
-                    doc.addImage(imgData, 'JPEG', (pageWidth - w) / 2, (pageHeight - h) / 2, w, h);
+                    // Calculate position in the 2x2 grid
+                    const positionOnPage = i % 4;
+                    const row = Math.floor(positionOnPage / 2);
+                    const col = positionOnPage % 2;
+
+                    const x = margin + (col * (boxW + spacing));
+                    const y = margin + (row * (boxH + spacing));
+
+                    // Calculate aspect ratio to fit within the box
+                    const ratio = imgProps.width / imgProps.height;
+                    let renderW = boxW;
+                    let renderH = boxW / ratio;
+
+                    if (renderH > boxH) {
+                        renderH = boxH;
+                        renderW = renderH * ratio;
+                    }
+
+                    // Center the image inside the grid box
+                    const finalX = x + (boxW - renderW) / 2;
+                    const finalY = y + (boxH - renderH) / 2;
+
+                    doc.addImage(imgData, 'JPEG', finalX, finalY, renderW, renderH);
                 }
 
-                doc.save(`Relatorio_${ns}.pdf`);
+                doc.save(`Foto_${ns}.pdf`);
 
                 taskItem.classList.add('completed');
                 taskItem.querySelector('.task-status').innerText = 'Concluído com sucesso!';

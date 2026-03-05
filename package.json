@@ -1,5 +1,5 @@
 {
-  "name": "sistema-levantamento",
+  "name": "ecossistema-pro",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,17 +10,20 @@
   },
   "dependencies": {
     "firebase": "^10.8.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
     "lucide-react": "^0.344.0",
     "next": "14.2.25",
+    "pdfjs-dist": "3.11.174",
+    "proj4": "^2.20.2",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "xlsx": "0.18.5",
-    "jspdf": "^2.5.1",
-    "pdfjs-dist": "3.11.174",
-    "html2canvas": "^1.4.1"
+    "tesseract.js": "^7.0.0",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.24",
+    "@types/proj4": "^2.5.6",
     "@types/react": "^18.2.61",
     "@types/react-dom": "^18.2.19",
     "autoprefixer": "^10.4.18",

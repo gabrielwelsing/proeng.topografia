@@ -5,8 +5,8 @@ import { Inter } from 'next/font/google';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'ProEng - Sistema de Levantamento',
-  description: 'Sistema de Levantamento Topográfico - ProEng Engenharia',
+  title: 'ProEng - Ecossistema',
+  description: 'Ecossistema Pro Engenharia',
   openGraph: {
     images: [
       {

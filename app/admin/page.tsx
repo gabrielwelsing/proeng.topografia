@@ -3,9 +3,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { db } from '@/app/firebase';
-import { collection, onSnapshot, query, doc, updateDoc } from 'firebase/firestore';
-import { ShieldCheck, ArrowLeft, Loader2, UserX, UserCheck, Settings } from 'lucide-react';
+import { collection, onSnapshot, query, doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { ShieldCheck, ArrowLeft, Loader2, UserX, UserCheck, Settings, UserPlus, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
+
+const FIREBASE_API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCKco1J5ZPYz6G0pcXFrgiL70fON7pVSPE';
 
 type UserData = {
     id: string;
@@ -15,6 +17,11 @@ type UserData = {
     roles?: {
         conversao: boolean;
         topografia: boolean;
+        pre_projeto: boolean;
+        ambiental: boolean;
+        earth: boolean;
+        numerarPostes: boolean;
+        admin: boolean;
         numerarPostes: boolean;
         admin: boolean;
     };
@@ -26,6 +33,18 @@ export default function AdminPage() {
     const router = useRouter();
     const [usersList, setUsersList] = useState<UserData[]>([]);
     const [fetching, setFetching] = useState(true);
+
+    // Create user form
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newEmail, setNewEmail] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [newRoles, setNewRoles] = useState({
+        conversao: false, topografia: false, earth: false, numerarPostes: false, admin: false
+    });
+    const [creating, setCreating] = useState(false);
+    const [createMsg, setCreateMsg] = useState('');
+    const [createErr, setCreateErr] = useState('');
 
     useEffect(() => {
         if (!loading && (!user || !roles?.admin)) {
@@ -78,20 +97,95 @@ export default function AdminPage() {
         }
     };
 
-    const toggleRole = async (userId: string, currentRoles: any, roleName: 'conversao' | 'topografia' | 'numerarPostes' | 'admin') => {
+    const toggleRole = async (userId: string, currentRoles: any, roleName: 'conversao' | 'topografia' | 'pre_projeto' | 'ambiental' | 'earth' | 'numerarPostes' | 'admin') => {
         try {
-            const newRoles = {
+            const updatedRoles = {
                 conversao: currentRoles?.conversao || false,
                 topografia: currentRoles?.topografia || false,
+                pre_projeto: currentRoles?.pre_projeto || false,
+                ambiental: currentRoles?.ambiental || false,
+                earth: currentRoles?.earth || false,
                 numerarPostes: currentRoles?.numerarPostes || false,
                 admin: currentRoles?.admin || false,
                 [roleName]: !(currentRoles?.[roleName])
             };
 
-            await updateDoc(doc(db, 'users', userId), { roles: newRoles });
+            await updateDoc(doc(db, 'users', userId), { roles: updatedRoles });
         } catch (error) {
             console.error("Erro ao atualizar role:", error);
             alert("Erro ao atualizar módulos do usuário.");
+        }
+    };
+
+    const handleCreateUser = async () => {
+        if (!newName || !newEmail || !newPassword) {
+            setCreateErr('Preencha todos os campos.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setCreateErr('Senha deve ter ao menos 6 caracteres.');
+            return;
+        }
+
+        setCreating(true);
+        setCreateErr('');
+        setCreateMsg('');
+
+        try {
+            // 1. Create Firebase Auth user via REST API (doesn't affect admin session)
+            const res = await fetch(
+                `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: newEmail.toLowerCase().trim(),
+                        password: newPassword,
+                        returnSecureToken: false
+                    })
+                }
+            );
+
+            const data = await res.json();
+
+            if (data.error) {
+                if (data.error.message === 'EMAIL_EXISTS') {
+                    setCreateErr('Este e-mail já está cadastrado.');
+                } else {
+                    setCreateErr(`Erro: ${data.error.message}`);
+                }
+                setCreating(false);
+                return;
+            }
+
+            const newUid = data.localId;
+
+            // 2. Create Firestore document — already approved with selected roles
+            await setDoc(doc(db, 'users', newUid), {
+                name: newName.trim(),
+                email: newEmail.toLowerCase().trim(),
+                status: 'approved',
+                roles: {
+                    conversao: newRoles.conversao,
+                    topografia: newRoles.topografia,
+                    pre_projeto: false,
+                    ambiental: false,
+                    earth: newRoles.earth,
+                    admin: newRoles.admin
+                },
+                createdAt: serverTimestamp()
+            });
+
+            setCreateMsg(`✅ ${newName} criado e aprovado com sucesso!`);
+            setNewName('');
+            setNewEmail('');
+            setNewPassword('');
+            setNewRoles({ conversao: false, topografia: false, earth: false, numerarPostes: false, admin: false });
+        } catch (err: any) {
+            console.error('Erro ao criar usuário:', err);
+            setCreateErr('Erro ao criar usuário. Verifique a conexão.');
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -107,7 +201,78 @@ export default function AdminPage() {
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto p-6 mt-6">
+            <main className="max-w-5xl mx-auto p-6 mt-6 space-y-6">
+
+                {/* CRIAR USUÁRIO */}
+                <div className="bg-white rounded-2xl shadow-sm border border-blue-200 overflow-hidden">
+                    <button
+                        onClick={() => { setShowCreateForm(!showCreateForm); setCreateMsg(''); setCreateErr(''); }}
+                        className="w-full p-5 flex items-center justify-between hover:bg-blue-50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-100 w-10 h-10 rounded-xl flex items-center justify-center">
+                                <UserPlus size={20} className="text-blue-600" />
+                            </div>
+                            <div className="text-left">
+                                <h2 className="text-lg font-bold text-slate-800">Criar Usuário</h2>
+                                <p className="text-xs text-slate-400">Crie e aprove um novo usuário diretamente</p>
+                            </div>
+                        </div>
+                        {showCreateForm ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                    </button>
+
+                    {showCreateForm && (
+                        <div className="p-5 pt-0 border-t border-blue-100">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                                <input
+                                    value={newName} onChange={e => setNewName(e.target.value)}
+                                    placeholder="Nome completo"
+                                    className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium text-slate-800"
+                                />
+                                <input
+                                    value={newEmail} onChange={e => setNewEmail(e.target.value)}
+                                    placeholder="E-mail"
+                                    type="email"
+                                    className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium text-slate-800"
+                                />
+                                <input
+                                    value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                                    placeholder="Senha (min 6 caracteres)"
+                                    type="text"
+                                    className="border border-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium text-slate-800 font-mono"
+                                />
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-4 mt-4">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Módulos:</span>
+                                {(['conversao', 'topografia', 'earth', 'numerarPostes', 'admin'] as const).map(role => (
+                                    <label key={role} className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-slate-50 p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                        <input
+                                            type="checkbox"
+                                            checked={newRoles[role]}
+                                            onChange={() => setNewRoles(prev => ({ ...prev, [role]: !prev[role] }))}
+                                            className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4"
+                                        />
+                                        {role === 'conversao' ? 'Conversor' : role === 'topografia' ? 'Contar US' : role === 'earth' ? 'Integração Earth' : role === 'numerarPostes' ? 'Numerar Postes' : 'Admin'}
+                                    </label>
+                                ))}
+                            </div>
+
+                            {createErr && <p className="text-red-500 text-xs mt-3 font-bold bg-red-50 p-2 rounded">{createErr}</p>}
+                            {createMsg && <p className="text-emerald-600 text-xs mt-3 font-bold bg-emerald-50 p-2 rounded">{createMsg}</p>}
+
+                            <button
+                                onClick={handleCreateUser}
+                                disabled={creating}
+                                className="mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2.5 rounded-lg text-sm font-bold shadow-sm transition-colors flex items-center gap-2"
+                            >
+                                {creating ? <><Loader2 size={16} className="animate-spin" /> Criando...</> : <><UserPlus size={16} /> Criar e Aprovar</>}
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* LISTA DE USUÁRIOS */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div className="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
                         <h2 className="text-lg font-bold text-slate-800">Usuários Cadastrados</h2>
@@ -172,21 +337,28 @@ export default function AdminPage() {
                                                 Contar US
                                             </label>
                                             <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <input type="checkbox" checked={!!usr.roles?.numerarPostes} onChange={() => toggleRole(usr.id, usr.roles, 'numerarPostes')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
-                                                Numerar Postes
-                                            </label>
-                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
-                                                Admin
-                                            </label>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                    <input type="checkbox" checked={!!usr.roles?.earth || !!usr.roles?.pre_projeto || !!usr.roles?.ambiental} onChange={() => toggleRole(usr.id, usr.roles, 'earth')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                    Integração Earth
+                                                </label>
+                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                    <input type="checkbox" checked={!!usr.roles?.numerarPostes} onChange={() => toggleRole(usr.id, usr.roles, 'numerarPostes')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                    Numerar Postes
+                                                </label>
+                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                    <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                    Admin
+                                                </label>
+                                        </div >
+                                    </div >
+                                </div >
+                            ))
+                            }
+                        </div >
                     )}
-                </div>
-            </main>
-        </div>
+                </div >
+            </main >
+        </div >
     );
 }
+
