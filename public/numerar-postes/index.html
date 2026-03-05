@@ -115,6 +115,20 @@
             cursor: not-allowed;
         }
 
+        .btn-secondary {
+            background-color: #6c757d;
+        }
+
+        .btn-secondary:hover {
+            background-color: #5a6268;
+        }
+
+        .flex-gap {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
         .info {
             font-size: 13px;
             color: #555;
@@ -148,7 +162,9 @@
 <body>
 
     <div class="toolbar">
-        <div class="controls">
+        <div class="controls flex-gap">
+            <button id="btn-back" class="btn-secondary" title="Retornar ao HUB">◀ Portal</button>
+            <button id="btn-new" class="btn-secondary" title="Limpar projeto atual">Novo Projeto</button>
             <input type="file" id="file-input" accept="application/pdf" />
             <button id="prev-page" disabled>◀ Anterior</button>
             <span id="page-num" class="info">Pág: 0 / 0</span>
@@ -211,6 +227,8 @@
         const nextBtn = document.getElementById('next-page');
         const downloadBtn = document.getElementById('download-btn');
         const pageNumSpan = document.getElementById('page-num');
+        const btnBack = document.getElementById('btn-back');
+        const btnNew = document.getElementById('btn-new');
 
         // Elementos de resumo
         const countInstalled = document.getElementById('count-installed');
@@ -236,6 +254,40 @@
             valModified.textContent = vMod.toFixed(2).replace('.', ',') + ' US';
             valTotal.textContent = vTot.toFixed(2).replace('.', ',') + ' US';
         }
+
+        // ---- Novos Botoes ----
+        btnBack.addEventListener('click', () => {
+            window.location.href = '/hub';
+        });
+
+        btnNew.addEventListener('click', () => {
+            if (points.length > 0) {
+                if (!confirm('Deseja iniciar um novo projeto? Todos os pontos marcados serão perdidos.')) return;
+            }
+
+            // Resetar estado
+            pdfDoc = null;
+            pageNum = 1;
+            points = [];
+            poleCounter = 1;
+            originalPdfBytes = null;
+            fileInput.value = '';
+
+            // Limpar canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            canvas.width = 0;
+            canvas.height = 0;
+            overlayCanvas.width = 0;
+            overlayCanvas.height = 0;
+
+            // Atualizar UI
+            updateSummary();
+            pageNumSpan.textContent = `Pág: 0 / 0`;
+            prevBtn.disabled = true;
+            nextBtn.disabled = true;
+            downloadBtn.disabled = true;
+        });
 
         // ---- Upload de arquivo ----
         fileInput.addEventListener('change', (e) => {
