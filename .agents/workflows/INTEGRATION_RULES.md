@@ -19,9 +19,28 @@ Quando precisar adicionar a camada de Firebase Auth para garantir acesso restrit
 - Chame as libs externas do Firebase e JS nativo como eram antes.
 - Não tente "reactificar" (converter para React/Next) o código a menos que o usuário peça expressamente. A prioridade é funcionar rápido, exatamente como funcionava no MVP.
 
-## Histórico de Incidente
-*Data: 06/03/2026*
-Ao adicionar autenticação Firebase no módulo "Conversor de Fotos", o script original de `jsPDF` foi reescrito para um modelo mais básico. Isso acidentalmente removeu a matemática especializada (canvas translation/rotation) que forçava fotos em modo paisagem a girarem 90 graus para caber no PDF no modo retrato de forma otimizada.
-**Correção aplicada:** A lógica do PDF teve que ser restaurada manualmente.
+## Histórico de Incidentes
 
-*Este arquivo orientará as próximas integrações de ferramentas no Ecossistema.*
+### Incidente 1: Perda de Lógica de Negócio (06/03/2026)
+Ao adicionar autenticação Firebase no módulo "Conversor de Fotos", o script original de `jsPDF` foi reescrito para um modelo mais básico. Isso acidentalmente removeu a matemática especializada (canvas translation/rotation) que forçava fotos em modo paisagem a girarem 90 graus para caber no PDF no modo retrato de forma otimizada.
+
+**Correção:** A lógica do PDF teve que ser restaurada manualmente.
+
+---
+
+# Tema 2: Manutenção e Restauração de Código Legado
+
+## 1. Copie Blocos Inteiros, Nunca Fragmentos
+Se for instruído a "restaurar" ou "voltar ao código antigo" após uma falha de integração:
+- Vá até o arquivo original (backup local ou repositório de origem).
+- Copie **tudo** que engloba aquela funcionalidade (função principal, event listeners dependentes, **e funções de apoio auxiliares**).
+- Nunca copie apenas a função que quebrou isoladamente sem verificar se ela chama outras funções que também foram apagadas (ex: `getNSFromModal` sendo chamada por `handleFiles`).
+
+## Histórico de Incidentes
+
+### Incidente 2: Omissão de Função Requisitada (06/03/2026)
+Durante a restauração da lógica do PDF (`createPDF` e `loadImage`) do Incidente 1, a função auxiliar `getNSFromModal`, que coletava o nome do projeto (NS) na UI antes do processamento, foi acidentalmente deixada para trás e apagada do arquivo final. Isso causou congelamento total da aplicação ao tentar arrastar os arquivos, já que a promessa principal aguardava uma função inexistente.
+
+**Correção:** O arquivo original foi lido novamente e a função faltante reinjetada abaixo da lógica de PDF.
+
+*Este arquivo orientará as próximas manutenções em todos os módulos do Ecossistema.*
