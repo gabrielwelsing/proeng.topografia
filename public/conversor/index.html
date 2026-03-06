@@ -709,7 +709,11 @@
                         canvas.height = imgProps.width;
                         const ctx = canvas.getContext('2d');
                         ctx.translate(canvas.width / 2, canvas.height / 2);
-                        ctx.rotate(90 * Math.PI / 180);
+                        // User requested rotation "da esquerda para a direita".
+                        // Usually phones in landscape orient the top of the photo to the left. 
+                        // To make it portrait, we rotate right (clockwise, 90). 
+                        // If that was wrong, we need to rotate left (counter-clockwise, -90).
+                        ctx.rotate(-90 * Math.PI / 180);
 
                         const imgElem = new Image();
                         await new Promise((resolve) => {
