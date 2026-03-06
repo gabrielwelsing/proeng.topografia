@@ -771,6 +771,35 @@
             });
         }
 
+        function getNSFromModal() {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('modal-overlay');
+                const btn = document.getElementById('confirm-btn');
+                const input = document.getElementById('ns-input');
+                const count = document.getElementById('char-count');
+
+                overlay.classList.add('active');
+                input.value = '';
+                count.innerText = '0/10';
+                btn.disabled = true;
+
+                const onInput = (e) => {
+                    count.innerText = `${e.target.value.length}/10`;
+                    btn.disabled = e.target.value.length !== 10;
+                };
+
+                const onConfirm = () => {
+                    overlay.classList.remove('active');
+                    input.removeEventListener('input', onInput);
+                    btn.removeEventListener('click', onConfirm);
+                    resolve(input.value.toUpperCase());
+                };
+
+                input.addEventListener('input', onInput);
+                btn.addEventListener('click', onConfirm);
+            });
+        }
+
         // --- ADMIN PANEL LOGIC ---
         adminBtn.addEventListener('click', () => {
             adminOverlay.classList.add('active');
