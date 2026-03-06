@@ -22,8 +22,6 @@ type UserData = {
         earth: boolean;
         numerarPostes: boolean;
         admin: boolean;
-        numerarPostes: boolean;
-        admin: boolean;
     };
     createdAt?: any;
 };
@@ -337,18 +335,17 @@ export default function AdminPage() {
                                                 Contar US
                                             </label>
                                             <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                    <input type="checkbox" checked={!!usr.roles?.earth || !!usr.roles?.pre_projeto || !!usr.roles?.ambiental} onChange={() => toggleRole(usr.id, usr.roles, 'earth')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
-                                                    Integração Earth
-                                                </label>
-                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                    <input type="checkbox" checked={!!usr.roles?.numerarPostes} onChange={() => toggleRole(usr.id, usr.roles, 'numerarPostes')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
-                                                    Numerar Postes
-                                                </label>
-                                                <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
-                                                    <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
-                                                    Admin
-                                                </label>
+                                                <input type="checkbox" checked={!!usr.roles?.earth || !!usr.roles?.pre_projeto || !!usr.roles?.ambiental} onChange={() => toggleRole(usr.id, usr.roles, 'earth')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                Integração Earth
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                <input type="checkbox" checked={!!usr.roles?.numerarPostes} onChange={() => toggleRole(usr.id, usr.roles, 'numerarPostes')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                Numerar Postes
+                                            </label>
+                                            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 cursor-pointer hover:bg-white p-1.5 rounded border border-transparent hover:border-slate-300 transition-all">
+                                                <input type="checkbox" checked={!!usr.roles?.admin} onChange={() => toggleRole(usr.id, usr.roles, 'admin')} className="rounded text-blue-500 focus:ring-blue-500 w-4 h-4" />
+                                                Admin
+                                            </label>
                                         </div >
                                     </div >
                                 </div >
