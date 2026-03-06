@@ -653,14 +653,14 @@
                     unit: 'mm',
                     format: 'a4'
                 });
-                
+
                 const pageWidth = doc.internal.pageSize.getWidth();
                 const pageHeight = doc.internal.pageSize.getHeight();
-                
+
                 // Grid settings (2x2)
                 const margin = 10;
                 const spacing = 10;
-                
+
                 // Effective width/height for one image box
                 const boxW = (pageWidth - (margin * 2) - spacing) / 2;
                 const boxH = (pageHeight - (margin * 2) - spacing) / 2;
@@ -683,7 +683,11 @@
                     const y = margin + (row * (boxH + spacing));
 
                     // Calculate aspect ratio to fit within the box
-                    const ratio = imgProps.width / imgProps.height;
+                    let isLandscape = imgProps.width > imgProps.height;
+                    let nativeW = isLandscape ? imgProps.height : imgProps.width;
+                    let nativeH = isLandscape ? imgProps.width : imgProps.height;
+
+                    const ratio = nativeW / nativeH;
                     let renderW = boxW;
                     let renderH = boxW / ratio;
 
@@ -696,7 +700,31 @@
                     const finalX = x + (boxW - renderW) / 2;
                     const finalY = y + (boxH - renderH) / 2;
 
-                    doc.addImage(imgData, 'JPEG', finalX, finalY, renderW, renderH);
+                    if (isLandscape) {
+                        // jsPDF rotate requires angle and rotation origin.
+                        // We translate the image so its center aligns with finalX, finalY center.
+                        // A simpler way is using canvas to pre-rotate the image to avoid jsPDF coordinate math.
+                        const canvas = document.createElement('canvas');
+                        canvas.width = imgProps.height;
+                        canvas.height = imgProps.width;
+                        const ctx = canvas.getContext('2d');
+                        ctx.translate(canvas.width / 2, canvas.height / 2);
+                        ctx.rotate(90 * Math.PI / 180);
+
+                        const imgElem = new Image();
+                        await new Promise((resolve) => {
+                            imgElem.onload = () => {
+                                ctx.drawImage(imgElem, -imgProps.width / 2, -imgProps.height / 2);
+                                resolve();
+                            };
+                            imgElem.src = imgData;
+                        });
+
+                        const rotatedData = canvas.toDataURL('image/jpeg', 0.85);
+                        doc.addImage(rotatedData, 'JPEG', finalX, finalY, renderW, renderH);
+                    } else {
+                        doc.addImage(imgData, 'JPEG', finalX, finalY, renderW, renderH);
+                    }
                 }
 
                 doc.save(`Foto_${ns}.pdf`);
