@@ -629,6 +629,7 @@
         });
 
         async function handleFiles(files) {
+            files = Array.from(files).filter(file => file.type.startsWith('image/'));
             if (files.length === 0) return;
             const ns = await getNSFromModal();
             if (!ns) return;
@@ -640,103 +641,39 @@
             taskItem.innerHTML = `
                 <div>
                     <div class="task-title">NS ${ns}</div>
-                    <div class="task-status">Processando ${files.length} imagens...</div>
+                    <div class="task-status" id="status-${taskId}">Preparando ${files.length} imagens...</div>
                 </div>
-                <div class="spinning">⏳</div>
+                <div class="spinning" id="icon-${taskId}">⏳</div>
             `;
             taskQueue.prepend(taskItem);
 
             try {
-                // A4 Portrait 210 x 297 mm
-                const doc = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'mm',
-                    format: 'a4'
-                });
+                const statusText = document.getElementById(`status-${taskId}`);
+                const statusIcon = document.getElementById(`icon-${taskId}`);
 
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-
-                // Grid settings (2x2)
-                const margin = 10;
-                const spacing = 10;
-
-                // Effective width/height for one image box
-                const boxW = (pageWidth - (margin * 2) - spacing) / 2;
-                const boxH = (pageHeight - (margin * 2) - spacing) / 2;
-
-                for (let i = 0; i < files.length; i++) {
-                    const imgData = await readFileAsDataURL(files[i]);
-                    const imgProps = await getImageProps(imgData);
-
-                    // Add new page if we filled 4 images
-                    if (i > 0 && i % 4 === 0) {
-                        doc.addPage();
-                    }
-
-                    // Calculate position in the 2x2 grid
-                    const positionOnPage = i % 4;
-                    const row = Math.floor(positionOnPage / 2);
-                    const col = positionOnPage % 2;
-
-                    const x = margin + (col * (boxW + spacing));
-                    const y = margin + (row * (boxH + spacing));
-
-                    // Calculate aspect ratio to fit within the box
-                    let isLandscape = imgProps.width > imgProps.height;
-                    let nativeW = isLandscape ? imgProps.height : imgProps.width;
-                    let nativeH = isLandscape ? imgProps.width : imgProps.height;
-
-                    const ratio = nativeW / nativeH;
-                    let renderW = boxW;
-                    let renderH = boxW / ratio;
-
-                    if (renderH > boxH) {
-                        renderH = boxH;
-                        renderW = renderH * ratio;
-                    }
-
-                    // Center the image inside the grid box
-                    const finalX = x + (boxW - renderW) / 2;
-                    const finalY = y + (boxH - renderH) / 2;
-
-                    if (isLandscape) {
-                        // jsPDF rotate requires angle and rotation origin.
-                        // We translate the image so its center aligns with finalX, finalY center.
-                        // A simpler way is using canvas to pre-rotate the image to avoid jsPDF coordinate math.
-                        const canvas = document.createElement('canvas');
-                        canvas.width = imgProps.height;
-                        canvas.height = imgProps.width;
-                        const ctx = canvas.getContext('2d');
-                        ctx.translate(canvas.width / 2, canvas.height / 2);
-                        // User requested rotation "da esquerda para a direita".
-                        // Usually phones in landscape orient the top of the photo to the left. 
-                        // To make it portrait, we rotate right (clockwise, 90). 
-                        // If that was wrong, we need to rotate left (counter-clockwise, -90).
-                        ctx.rotate(-90 * Math.PI / 180);
-
-                        const imgElem = new Image();
-                        await new Promise((resolve) => {
-                            imgElem.onload = () => {
-                                ctx.drawImage(imgElem, -imgProps.width / 2, -imgProps.height / 2);
-                                resolve();
-                            };
-                            imgElem.src = imgData;
-                        });
-
-                        const rotatedData = canvas.toDataURL('image/jpeg', 0.85);
-                        doc.addImage(rotatedData, 'JPEG', finalX, finalY, renderW, renderH);
-                    } else {
-                        doc.addImage(imgData, 'JPEG', finalX, finalY, renderW, renderH);
-                    }
+                const limit = 150;
+                const batches = [];
+                for (let i = 0; i < files.length; i += limit) {
+                    batches.push(files.slice(i, i + limit));
                 }
 
-                doc.save(`Foto_${ns}.pdf`);
+                for (let i = 0; i < batches.length; i++) {
+                    let currentFileName = batches.length > 1 ? `Foto_${ns}_Parte${i + 1}.pdf` : `Foto_${ns}.pdf`;
+                    statusText.innerText = `Gerando ${currentFileName} (${i + 1}/${batches.length})...`;
+
+                    statusIcon.innerText = "⚙️";
+                    statusIcon.classList.add("spinning");
+
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Pausa ligeiramente maior para UI
+
+                    await createPDF(batches[i], currentFileName);
+                }
 
                 taskItem.classList.add('completed');
-                taskItem.querySelector('.task-status').innerText = 'Concluído com sucesso!';
-                taskItem.querySelector('.spinning').innerHTML = '✅';
-                taskItem.querySelector('.spinning').classList.remove('spinning');
+                statusText.innerText = `Concluído com sucesso!`;
+
+                statusIcon.innerHTML = '✅';
+                statusIcon.classList.remove('spinning');
 
                 setTimeout(() => {
                     taskItem.style.opacity = '0';
@@ -744,54 +681,93 @@
                 }, 5000);
 
             } catch (err) {
-                taskItem.querySelector('.task-status').innerText = 'Erro ao processar.';
-                taskItem.querySelector('.spinning').innerHTML = '❌';
+                const statusText = document.getElementById(`status-${taskId}`);
+                const statusIcon = document.getElementById(`icon-${taskId}`);
+                statusText.innerText = 'Erro ao processar.';
+                statusIcon.innerHTML = '❌';
             }
         }
 
-        function getNSFromModal() {
-            return new Promise(resolve => {
-                const overlay = document.getElementById('modal-overlay');
-                const btn = document.getElementById('confirm-btn');
-                const input = document.getElementById('ns-input');
-                const count = document.getElementById('char-count');
+        async function createPDF(imageFiles, fileName) {
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-                overlay.classList.add('active');
-                input.value = '';
-                count.innerText = '0/10';
-                btn.disabled = true;
+            const margin = 10;
+            const contentWidth = 210 - (margin * 3);
+            const contentHeight = 297 - (margin * 3);
 
-                const onInput = (e) => {
-                    count.innerText = `${e.target.value.length}/10`;
-                    btn.disabled = e.target.value.length !== 10;
-                };
+            const cellWidth = contentWidth / 2;
+            const cellHeight = contentHeight / 2;
 
-                const onConfirm = () => {
-                    overlay.classList.remove('active');
-                    input.removeEventListener('input', onInput);
-                    btn.removeEventListener('click', onConfirm);
-                    resolve(input.value.toUpperCase());
-                };
+            const positions = [
+                { x: margin, y: margin },
+                { x: margin * 2 + cellWidth, y: margin },
+                { x: margin, y: margin * 2 + cellHeight },
+                { x: margin * 2 + cellWidth, y: margin * 2 + cellHeight }
+            ];
 
-                input.addEventListener('input', onInput);
-                btn.addEventListener('click', onConfirm);
-            });
+            for (let i = 0; i < imageFiles.length; i++) {
+                if (i > 0 && i % 4 === 0) {
+                    pdf.addPage();
+                }
+
+                const positionIndex = i % 4;
+                const imgData = await loadImage(imageFiles[i]);
+
+                const imgRatio = imgData.width / imgData.height;
+                const cellRatio = cellWidth / cellHeight;
+
+                let finalWidth, finalHeight;
+
+                if (imgRatio > cellRatio) {
+                    finalWidth = cellWidth;
+                    finalHeight = cellWidth / imgRatio;
+                } else {
+                    finalHeight = cellHeight;
+                    finalWidth = cellHeight * imgRatio;
+                }
+
+                const xOffset = positions[positionIndex].x + ((cellWidth - finalWidth) / 2);
+                const yOffset = positions[positionIndex].y + ((cellHeight - finalHeight) / 2);
+
+                pdf.addImage(imgData.src, imgData.type, xOffset, yOffset, finalWidth, finalHeight);
+            }
+
+            pdf.save(fileName);
         }
 
-        function readFileAsDataURL(file) {
-            return new Promise((res, rej) => {
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.onload = e => res(e.target.result);
-                reader.onerror = rej;
-                reader.readAsDataURL(file);
-            });
-        }
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
 
-        function getImageProps(src) {
-            return new Promise(res => {
-                const img = new Image();
-                img.onload = () => res({ width: img.width, height: img.height });
-                img.src = src;
+                        if (img.width > img.height) {
+                            canvas.width = img.height;
+                            canvas.height = img.width;
+                            ctx.translate(canvas.width / 2, canvas.height / 2);
+                            ctx.rotate(90 * Math.PI / 180);
+                            ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+                        } else {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0, img.width, img.height);
+                        }
+
+                        resolve({
+                            src: canvas.toDataURL('image/jpeg', 0.9),
+                            type: 'JPEG',
+                            width: canvas.width,
+                            height: canvas.height
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
             });
         }
 
