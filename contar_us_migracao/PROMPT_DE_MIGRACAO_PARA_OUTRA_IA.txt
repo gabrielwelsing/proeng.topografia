@@ -1,0 +1,36 @@
+# PROMPT DE MIGRAÇÃO - CONTAR US
+
+Copie o texto abaixo e cole no ChatGPT, Claude ou outra IA de sua preferência para que ela crie a lógica completa do seu módulo na nova infraestrutura.
+
+---
+**COPIE A PARTIR DAQUI:**
+
+Aja como um Desenvolvedor Fullstack Sênior especialista em Node.js, Express, PostgreSQL e Vanilla JS.
+
+**O CONTEXTO:**
+Eu possuo um módulo chamado "Contar US" no meu ecossistema de topografia. Ele é uma ferramenta visual de gestão de projetos (levantamento topográfico) onde o usuário manipula Unidades de Serviço (US) adicionando e editando itens como cabos, postes, redes elétricas em uma tabela. Ele permite exportação CSV e KML. Tudo ocorria no localStorage do navegador.
+
+**O OBJETIVO:**
+Eu quero reescrever este aplicativo, removendo o salvamento baseado no "localStorage" do navegador e implementando um banco de dados real em nuvem com PostgreSQL, separando-o em Modelo de Frontend e Backend.
+
+**O PADRÃO ARQUITETURAL EXIGIDO:**
+"Preciso criar um sistema profissional para ser hospedado no Railway com Banco de Dados PostgreSQL ou MongoDB . Não quero um site estático (apenas HTML), preciso da estrutura separada em Frontend e Backend.
+
+BACKEND (Node.js + Express):
+- Configure um servidor que utilize o pacote pg para conectar ao PostgreSQL.
+- Use variáveis de ambiente para a conexão: process.env.DATABASE_URL.
+- IMPORTANTE: No Pool do PG adicione `ssl: { rejectUnauthorized: false }` para funcionar no Railway.
+- Inclua suporte a CORS.
+- Crie rotas CRUD essenciais:
+  - GET /api/projetos (Listar todos)
+  - POST /api/projetos (Criar projeto)
+  - PUT /api/projetos/:id (Atualizar dados de cabos, postes, itens do projeto)
+- Forneça o arquivo package.json contendo dependências.
+
+FRONTEND (React Preferível ou HTML/JS):
+- **ATENÇÃO:** Eu incluí o arquivo `source_react.tsx` na minha pasta (que é o código fonte atual completo do módulo em React/Tailwind). Por favor, use esse código como base ABSOLUTA para recriar o Frontend, mantendo o mesmo visual e todas e exatas funcionalidades.
+- Toda a lógica de Adicionar Tabela/Cabos deve ocorrer no estado do React, e fazer um `fetch` para o Backend ao clicar em "Salvar Nuvem".
+- Design sofisticado corporativo com cores padrão Tailwind (Slate, Emerald para salvar).
+- Deixe configurado no JS: `const API_URL = 'http://localhost:3001'` (variável global editável).
+
+Por favor, forneça-me os arquivos `server.js` do node, as queries SQL para criar as tabelas do PostgreSQL e o `index.html` da interface.

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Engenharia - Conversão Fotos PDF</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        /* --- DESIGN DIRECTION: GLASSMORPHISM INDUSTRIAL --- */
+        :root {
+            --bg-dark: #0a0a0c;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --primary-blue: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.5);
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* --- MODERN HEADER --- */
+        header {
+            width: 100%;
+            max-width: 1000px;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .logo-box {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            padding: 10px 20px;
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            background-color: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            letter-spacing: 4px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .logo-box::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 12px;
+            padding: 2px;
+            background: linear-gradient(135deg, var(--primary-blue), transparent, var(--success));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .main-title {
+            font-size: 2.5rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            text-align: center;
+            margin-bottom: 10px;
+            background: linear-gradient(to bottom, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* --- TOP BUTTONS --- */
+        .top-nav {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .nav-btn {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .nav-btn-primary {
+            border-color: var(--primary-blue);
+            color: var(--primary-blue);
+        }
+
+        .nav-btn-primary:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--primary-blue);
+        }
+
+        /* --- MAIN CONTAINER --- */
+        .main-container {
+            width: 100%;
+            max-width: 800px;
+            padding: 0 20px 100px;
+        }
+
+        /* --- DROP ZONE --- */
+        #drop-zone {
+            width: 100%;
+            min-height: 320px;
+            background: var(--glass-bg);
+            border: 2px dashed var(--glass-border);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(12px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #drop-zone::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, var(--primary-blue), transparent);
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+
+        #drop-zone:hover {
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.1);
+        }
+
+        #drop-zone.dragover {
+            border-color: var(--primary-blue);
+            background: rgba(59, 130, 246, 0.05);
+            transform: scale(1.01);
+        }
+
+        #drop-zone.dragover::before {
+            opacity: 0.05;
+        }
+
+        .drop-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .drop-text {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .drop-subtext {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        /* --- TASK QUEUE --- */
+        #task-queue {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .task-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 20px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .task-item.completed {
+            border-color: rgba(16, 185, 129, 0.3);
+            background: rgba(16, 185, 129, 0.02);
+        }
+
+        .task-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 4px;
+        }
+
+        .task-status {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        /* --- MODALS --- */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-box {
+            background: #111114;
+            border: 1px solid var(--glass-border);
+            padding: 40px;
+            border-radius: 24px;
+            width: 90%;
+            max-width: 440px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transform: scale(0.95);
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal-overlay.active .modal-box {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 1.75rem;
+            font-weight: 900;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .modal-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+
+        .modal-btn {
+            width: 100%;
+            background: var(--primary-blue);
+            color: #fff;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        .modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* --- LOGIN SPECIFIC --- */
+        #login-overlay {
+            z-index: 2000;
+        }
+
+        /* --- SPIN ANIMATION --- */
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinning {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- TELA DE LOGIN -->
+    <div id="login-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title">Acesso Restrito</h2>
+            <div id="login-error" style="color: var(--danger); font-size: 0.85rem; margin-bottom: 16px; display: none;">
+            </div>
+
+            <div id="register-fields" style="display: none;">
+                <div class="input-group">
+                    <label class="input-label">Nome Completo</label>
+                    <input type="text" id="name-input" class="modal-input" placeholder="Seu nome">
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">E-mail</label>
+                <input type="email" id="email-input" class="modal-input" placeholder="seu@email.com">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Senha</label>
+                <input type="password" id="password-input" class="modal-input" placeholder="••••••••">
+            </div>
+
+            <button id="login-btn" class="modal-btn">Entrar no Sistema</button>
+            <button id="register-btn" class="modal-btn" style="display: none; background: var(--success);">
+                Solicitar Acesso
+            </button>
+
+            <div style="margin-top: 24px; text-align: center;">
+                <a href="#" id="toggle-register"
+                    style="color: var(--primary-blue); text-decoration: none; font-size: 0.9rem; font-weight: 600;">
+                    Não tem conta? Solicitar Acesso
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="top-nav">
+            <button onclick="window.location.href='/hub'" class="nav-btn nav-btn-primary">
+                Voltar ao Portal
+            </button>
+            <button id="admin-btn" class="nav-btn" style="display: none;">
+                Painel Admin
+            </button>
+            <button id="logout-btn" class="nav-btn" style="opacity: 0.7;">
+                Sair
+            </button>
+        </div>
+
+        <div class="logo-box">PRO</div>
+        <h1 class="main-title">Fotos para PDF</h1>
+        <p style="color: var(--text-dim); font-weight: 400;">Processamento inteligente de croquis e fotos</p>
+    </header>
+
+    <main class="main-container">
+        <div id="drop-zone">
+            <div class="drop-icon">📂</div>
+            <div class="drop-text">Arraste suas imagens aqui</div>
+            <div class="drop-subtext">Ou clique para selecionar arquivos do computador</div>
+            <p
+                style="margin-top: 20px; font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em;">
+                Suporta múltiplos lotes em paralelo
+            </p>
+        </div>
+
+        <div id="task-queue"></div>
+    </main>
+
+    <!-- NS MODAL -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <h2 class="modal-title">Identificar NS</h2>
+            <div class="input-group">
+                <label class="input-label">Número da NS (10 caracteres)</label>
+                <input type="text" id="ns-input" class="modal-input" placeholder="Ex: NS12345678" maxlength="10">
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <span id="char-count" style="font-size: 0.75rem; color: var(--text-dim);">0/10</span>
+                </div>
+            </div>
+            <button id="confirm-btn" class="modal-btn" disabled>Confirmar NS e Gerar PDF</button>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL (RE-STYLED) -->
+    <div id="admin-overlay" class="modal-overlay"
+        style="display: none; flex-direction: column; padding: 40px; overflow-y: auto;">
+        <div style="width: 100%; max-width: 800px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+                <h2 class="modal-title" style="margin-bottom: 0;">Aprovações Pendentes</h2>
+                <button id="close-admin-btn" class="nav-btn">Fechar Painel</button>
+            </div>
+            <div id="users-list" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Carregado via JS -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+        const dropZone = document.getElementById('drop-zone');
+        const taskQueue = document.getElementById('task-queue');
+
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCKco1J5ZPYz6G0pcXFrgiL70fON7pVSPE",
+            authDomain: "conversao-fotos.firebaseapp.com",
+            projectId: "conversao-fotos",
+            storageBucket: "conversao-fotos.firebasestorage.app",
+            messagingSenderId: "322589561472",
+            appId: "1:322589561472:web:dad7aafd6808613cc8cc65"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const ADMIN_EMAIL = "gabriel.welsing@gmail.com";
+
+        // --- UI LOGIC ELEMENTS ---
+        const loginOverlay = document.getElementById('login-overlay');
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const nameInput = document.getElementById('name-input');
+        const loginBtn = document.getElementById('login-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const toggleRegisterBtn = document.getElementById('toggle-register');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        const adminBtn = document.getElementById('admin-btn');
+        const adminOverlay = document.getElementById('admin-overlay');
+        const closeAdminBtn = document.getElementById('close-admin-btn');
+        const usersList = document.getElementById('users-list');
+
+        let isRegisterMode = false;
+
+        toggleRegisterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            if (isRegisterMode) {
+                document.querySelector('.modal-title').innerText = 'Nova Conta';
+                document.getElementById('register-fields').style.display = 'block';
+                loginBtn.style.display = 'none';
+                registerBtn.style.display = 'block';
+                toggleRegisterBtn.innerText = 'Já tem conta? Entrar';
+            } else {
+                document.querySelector('.modal-title').innerText = 'Acesso Restrito';
+                document.getElementById('register-fields').style.display = 'none';
+                loginBtn.style.display = 'block';
+                registerBtn.style.display = 'none';
+                toggleRegisterBtn.innerText = 'Não tem conta? Solicitar Acesso';
+            }
+            loginError.style.display = 'none';
+        });
+
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                try {
+                    const snap = await db.collection('users').doc(user.uid).get();
+                    if (snap.exists) {
+                        const data = snap.data();
+                        if (data.status === 'approved') {
+                            loginOverlay.classList.remove('active');
+                            if (user.email === ADMIN_EMAIL) adminBtn.style.display = 'flex';
+                        } else {
+                            auth.signOut();
+                            showLoginError(data.status === 'pending' ? 'Seu acesso está em análise.' : 'Acesso negado.');
+                        }
+                    } else {
+                        loginOverlay.classList.remove('active');
+                        if (user.email === ADMIN_EMAIL) adminBtn.style.display = 'flex';
+                    }
+                } catch (e) {
+                    showLoginError('Erro de conexão.');
+                    auth.signOut();
+                }
+            } else {
+                loginOverlay.classList.add('active');
+            }
+        });
+
+        function showLoginError(msg) {
+            loginError.innerText = msg;
+            loginError.style.display = 'block';
+        }
+
+        loginBtn.addEventListener('click', () => {
+            const email = emailInput.value;
+            const pass = passwordInput.value;
+            if (!email || !pass) return showLoginError('Preencha os campos.');
+
+            loginBtn.disabled = true;
+            loginBtn.innerText = 'Autenticando...';
+
+            auth.signInWithEmailAndPassword(email, pass)
+                .catch(err => {
+                    showLoginError('Credenciais inválidas.');
+                    loginBtn.disabled = false;
+                    loginBtn.innerText = 'Entrar no Sistema';
+                });
+        });
+
+        registerBtn.addEventListener('click', () => {
+            const name = nameInput.value;
+            const email = emailInput.value;
+            const pass = passwordInput.value;
+
+            if (!name || !email || !pass) return showLoginError('Preencha tudo.');
+
+            registerBtn.disabled = true;
+            registerBtn.innerText = 'Enviando...';
+
+            auth.createUserWithEmailAndPassword(email, pass)
+                .then(async (cred) => {
+                    await db.collection('users').doc(cred.user.uid).set({
+                        name, email, status: 'pending', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    await auth.signOut();
+                    toggleRegisterBtn.click();
+                    showLoginError('Solicitação enviada com sucesso!');
+                    loginError.style.color = 'var(--success)';
+                })
+                .catch(err => {
+                    showLoginError('Erro ao cadastrar.');
+                    registerBtn.disabled = false;
+                });
+        });
+
+        logoutBtn.addEventListener('click', () => auth.signOut());
+
+        // --- DROP ZONE LOGIC ---
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        dropZone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.multiple = true;
+            input.accept = 'image/*';
+            input.onchange = (e) => handleFiles(e.target.files);
+            input.click();
+        });
+
+        async function handleFiles(files) {
+            files = Array.from(files).filter(file => file.type.startsWith('image/'));
+            if (files.length === 0) return;
+            const ns = await getNSFromModal();
+            if (!ns) return;
+
+            const taskId = Date.now();
+            const taskItem = document.createElement('div');
+            taskItem.className = 'task-item';
+            taskItem.id = `task-${taskId}`;
+            taskItem.innerHTML = `
+                <div>
+                    <div class="task-title">NS ${ns}</div>
+                    <div class="task-status" id="status-${taskId}">Preparando ${files.length} imagens...</div>
+                </div>
+                <div class="spinning" id="icon-${taskId}">⏳</div>
+            `;
+            taskQueue.prepend(taskItem);
+
+            try {
+                const statusText = document.getElementById(`status-${taskId}`);
+                const statusIcon = document.getElementById(`icon-${taskId}`);
+
+                const limit = 150;
+                const batches = [];
+                for (let i = 0; i < files.length; i += limit) {
+                    batches.push(files.slice(i, i + limit));
+                }
+
+                for (let i = 0; i < batches.length; i++) {
+                    let currentFileName = batches.length > 1 ? `Foto_${ns}_Parte${i + 1}.pdf` : `Foto_${ns}.pdf`;
+                    statusText.innerText = `Gerando ${currentFileName} (${i + 1}/${batches.length})...`;
+
+                    statusIcon.innerText = "⚙️";
+                    statusIcon.classList.add("spinning");
+
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Pausa ligeiramente maior para UI
+
+                    await createPDF(batches[i], currentFileName);
+                }
+
+                taskItem.classList.add('completed');
+                statusText.innerText = `Concluído com sucesso!`;
+
+                statusIcon.innerHTML = '✅';
+                statusIcon.classList.remove('spinning');
+
+                setTimeout(() => {
+                    taskItem.style.opacity = '0';
+                    setTimeout(() => taskItem.remove(), 500);
+                }, 5000);
+
+            } catch (err) {
+                const statusText = document.getElementById(`status-${taskId}`);
+                const statusIcon = document.getElementById(`icon-${taskId}`);
+                statusText.innerText = 'Erro ao processar.';
+                statusIcon.innerHTML = '❌';
+            }
+        }
+
+        async function createPDF(imageFiles, fileName) {
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+            const margin = 10;
+            const contentWidth = 210 - (margin * 3);
+            const contentHeight = 297 - (margin * 3);
+
+            const cellWidth = contentWidth / 2;
+            const cellHeight = contentHeight / 2;
+
+            const positions = [
+                { x: margin, y: margin },
+                { x: margin * 2 + cellWidth, y: margin },
+                { x: margin, y: margin * 2 + cellHeight },
+                { x: margin * 2 + cellWidth, y: margin * 2 + cellHeight }
+            ];
+
+            for (let i = 0; i < imageFiles.length; i++) {
+                if (i > 0 && i % 4 === 0) {
+                    pdf.addPage();
+                }
+
+                const positionIndex = i % 4;
+                const imgData = await loadImage(imageFiles[i]);
+
+                const imgRatio = imgData.width / imgData.height;
+                const cellRatio = cellWidth / cellHeight;
+
+                let finalWidth, finalHeight;
+
+                if (imgRatio > cellRatio) {
+                    finalWidth = cellWidth;
+                    finalHeight = cellWidth / imgRatio;
+                } else {
+                    finalHeight = cellHeight;
+                    finalWidth = cellHeight * imgRatio;
+                }
+
+                const xOffset = positions[positionIndex].x + ((cellWidth - finalWidth) / 2);
+                const yOffset = positions[positionIndex].y + ((cellHeight - finalHeight) / 2);
+
+                pdf.addImage(imgData.src, imgData.type, xOffset, yOffset, finalWidth, finalHeight);
+            }
+
+            pdf.save(fileName);
+        }
+
+        function loadImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        if (img.width > img.height) {
+                            canvas.width = img.height;
+                            canvas.height = img.width;
+                            ctx.translate(canvas.width / 2, canvas.height / 2);
+                            ctx.rotate(90 * Math.PI / 180);
+                            ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+                        } else {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0, img.width, img.height);
+                        }
+
+                        resolve({
+                            src: canvas.toDataURL('image/jpeg', 0.9),
+                            type: 'JPEG',
+                            width: canvas.width,
+                            height: canvas.height
+                        });
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function getNSFromModal() {
+            return new Promise(resolve => {
+                const overlay = document.getElementById('modal-overlay');
+                const btn = document.getElementById('confirm-btn');
+                const input = document.getElementById('ns-input');
+                const count = document.getElementById('char-count');
+
+                overlay.classList.add('active');
+                input.value = '';
+                count.innerText = '0/10';
+                btn.disabled = true;
+
+                const onInput = (e) => {
+                    count.innerText = `${e.target.value.length}/10`;
+                    btn.disabled = e.target.value.length !== 10;
+                };
+
+                const onConfirm = () => {
+                    overlay.classList.remove('active');
+                    input.removeEventListener('input', onInput);
+                    btn.removeEventListener('click', onConfirm);
+                    resolve(input.value.toUpperCase());
+                };
+
+                input.addEventListener('input', onInput);
+                btn.addEventListener('click', onConfirm);
+            });
+        }
+
+        // --- ADMIN PANEL LOGIC ---
+        adminBtn.addEventListener('click', () => {
+            adminOverlay.classList.add('active');
+            adminOverlay.style.display = 'flex';
+            loadUsers();
+        });
+        closeAdminBtn.addEventListener('click', () => {
+            adminOverlay.classList.remove('active');
+            setTimeout(() => adminOverlay.style.display = 'none', 300);
+        });
+
+        function loadUsers() {
+            db.collection('users').orderBy('createdAt', 'desc').onSnapshot(snap => {
+                usersList.innerHTML = '';
+                snap.forEach(docSnap => {
+                    const u = docSnap.data();
+                    const div = document.createElement('div');
+                    div.style.cssText = 'background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 20px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center;';
+                    div.innerHTML = `
+                        <div>
+                            <div style="font-weight: 600;">${u.name || 'Sem Nome'}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-dim);">${u.email}</div>
+                            <div style="font-size: 0.7rem; margin-top: 4px; color: ${u.status === 'approved' ? 'var(--success)' : 'var(--warning)'}; text-transform: uppercase; font-weight: 800;">${u.status}</div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            ${u.status !== 'approved' ? `<button onclick="updateStatus('${docSnap.id}', 'approved')" class="nav-btn nav-btn-primary" style="padding: 6px 12px; font-size: 0.75rem;">Aprovar</button>` : ''}
+                            ${u.status !== 'rejected' ? `<button onclick="updateStatus('${docSnap.id}', 'rejected')" class="nav-btn" style="padding: 6px 12px; font-size: 0.75rem; color: var(--danger); border-color: var(--danger);">Recusar</button>` : ''}
+                        </div>
+                    `;
+                    usersList.appendChild(div);
+                });
+            });
+        }
+
+        window.updateStatus = (id, s) => db.collection('users').doc(id).update({ status: s });
+
+    </script>
+</body>
+
+</html>

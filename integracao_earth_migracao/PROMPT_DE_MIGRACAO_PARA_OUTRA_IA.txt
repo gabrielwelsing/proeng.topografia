@@ -1,0 +1,34 @@
+# PROMPT DE MIGRAÇÃO - INTEGRAÇÃO EARTH
+
+Copie o texto abaixo e cole no ChatGPT, Claude ou outra IA de sua preferência para que ela crie a lógica completa do seu módulo na nova infraestrutura.
+
+---
+**COPIE A PARTIR DAQUI:**
+
+Aja como um Desenvolvedor Fullstack Sênior especialista em Node.js, Express, PostgreSQL e Vanilla JS.
+
+**O CONTEXTO:**
+Eu possuo um módulo chamado "Integração Earth". Ele é uma ferramenta de engenharia capaz de analisar o texto digitado (ou copiado de planilhas/documentos), extrair coordenadas UTM contidas nesse texto e transformá-las em um arquivo `.KML` funcional. Esse arquivo KML é baixado automaticamente pelo front-end no navegador, contendo "Pins" desenhados que são plotados no Google Earth. Existiam dois modos: "Pré Projeto" e "Ambiental", cada um formatando o nome e os estilos dos ícones de maneira diferente.
+
+**O OBJETIVO:**
+Eu quero reescrever esta ferramenta passando o processamento pesado e o registro de histórico de logs para um Servidor Node.js em nuvem hospedado de forma independente no Railway, com registro no PostgreSQL, seguindo minha arquitetura padrão.
+
+**O PADRÃO ARQUITETURAL EXIGIDO:**
+"Preciso criar um sistema profissional para ser hospedado no Railway com Banco de Dados PostgreSQL ou MongoDB . Não quero um site estático (apenas HTML), preciso da estrutura separada em Frontend e Backend.
+
+BACKEND (Node.js + Express):
+- Configure um servidor que utilize o pacote pg para conectar ao PostgreSQL.
+- Use variáveis de ambiente para a conexão: process.env.DATABASE_URL.
+- IMPORTANTE: No Pool do PG adicione `ssl: { rejectUnauthorized: false }` para funcionar no Railway.
+- Inclua suporte a CORS.
+- Crie uma rota POST /api/gerar-kml onde o frontend envia o texto UTM, e o Backend extrai as coordenadas (Via RegEx), formata o Payload KML (xml) e o devolve como String/Documento e ao mesmo tempo registra no PostgreSQL qual tipo de mapa foi gerado.
+- Forneça o arquivo package.json contendo pacotes e engines.
+
+FRONTEND (React Preferível ou HTML/JS Puro Moderno):
+- **ATENÇÃO:** Eu incluí o arquivo `source_react.tsx` na minha pasta (código base completo do módulo). Por favor, use essa estrutura React/Tailwind base para refazer o Frontend idêntico ao original.
+- Interface visual "Glassmorphism" no estilo Tailwind Dark, contendo a área "Copiar/Colar o Documento e Planilha".
+- Select menu visual para escolher o "Mode" (Pré Projeto ou Ambiental).
+- Ao clicar em "Extrair para o Google Earth", o Frontend envia um `fetch` POST para o Backend, recolhe o conteúdo do KML formatado, e aciona o download automático localmente pelo navegador criando um Blob de `application/vnd.google-earth.kml+xml`.
+- Mantenha no script o apontamento `const API_URL = 'http://localhost:3001'`
+
+Por favor, gere todo o código dessa estrutura.

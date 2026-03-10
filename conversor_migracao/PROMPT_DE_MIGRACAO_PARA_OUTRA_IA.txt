@@ -1,0 +1,32 @@
+# PROMPT DE MIGRAÇÃO - CONVERSOR DE FOTOS
+
+Copie o texto abaixo e cole no ChatGPT, Claude ou outra IA de sua preferência para que ela crie a lógica completa do seu módulo na nova infraestrutura.
+
+---
+**COPIE A PARTIR DAQUI:**
+
+Aja como um Desenvolvedor Fullstack Sênior especialista em Node.js, Express, PostgreSQL e Vanilla JS.
+
+**O CONTEXTO:**
+Eu possuo atualmente um módulo estático HTML/JS chamado "Conversor de Fotos" (ProEng). Ele é uma ferramenta industrial que pega múltiplas imagens, agrupa 4 fotos por página A4 (redimensionando e rotacionando fotos em paisagem para retrato otimizado) e baixa como PDF usando a biblioteca jsPDF. Ele pede ao usuário um identificador chamado "NS" (Número do Serviço, 10 caracteres) antes de gerar o PDF.
+
+**O OBJETIVO:**
+Eu quero reescrever este aplicativo do zero, transformando-o num sistema moderno (SaaS) separado em Frontend e API (Backend), que salva o histórico de PDFs gerados e quem os gerou.
+
+**O PADRÃO ARQUITETURAL EXIGIDO:**
+"Preciso criar um sistema profissional para ser hospedado no Railway com Banco de Dados PostgreSQL ou MongoDB . Não quero um site estático (apenas HTML), preciso da estrutura separada em Frontend e Backend.
+BACKEND (Node.js + Express):
+- Configure um servidor que utilize o pacote pg para conectar ao PostgreSQL.
+- Use variáveis de ambiente para a conexão: process.env.DATABASE_URL.
+- IMPORTANTE: No Pool do PG adicione `ssl: { rejectUnauthorized: false }` para funcionar no Railway.
+- Inclua suporte a CORS.
+- Crie uma estrutura básica de rota (POST /api/historico) para salvar no banco qual 'NS' foi gerado e a quantidade de fotos processadas.
+- Forneça o arquivo package.json com dependências.
+
+FRONTEND:
+- O frontend gerará o PDF normalmente no navegador usando jsPDF e Canvas puro.
+- Layout escuro com Glassmorphism (Tailwind ou CSS puro moderno).
+- Ao finalizar o download do PDF no navegador, faça um `fetch` POST chamando a API do backend para registrar essa atividade.
+- Deixe configurado `const API_URL = 'http://localhost:3001'` pronto para eu alterar depois para a rota do Railway.
+
+Por favor, forneça-me os arquivos `server.js`, `package.json` para o backend, e o `index.html` completo para o frontend.

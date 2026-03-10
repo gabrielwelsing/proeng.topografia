@@ -1,0 +1,33 @@
+# PROMPT DE MIGRAÇÃO - NUMERAR POSTES
+
+Copie o texto abaixo e cole no ChatGPT, Claude ou outra IA de sua preferência para que ela crie a lógica completa do seu módulo na nova infraestrutura.
+
+---
+**COPIE A PARTIR DAQUI:**
+
+Aja como um Desenvolvedor Fullstack Sênior especialista em Node.js, Express, PostgreSQL e Vanilla JS.
+
+**O CONTEXTO:**
+Eu possuo atualmente um módulo clássico chamado "Numerar Postes" da minha empresa de topografia. Ele é uma calculadora de texto. O usuário insere um texto que contém marcações e quantidades (ex: "POSTE R1 T2 E1"), o sistema detecta as sequências através de Javascript puro e exibe no formato numerado correto, permitindo que a pessoa copie para a área de transferência.
+
+**O OBJETIVO:**
+Eu quero reescrever este aplicativo do zero, separando perfeitamente a lógica de texto para ser rápida, e usar um Backend para registrar no banco de dados todas as sequências processadas para auditoria (quantos postes a pessoa numerou na sessão).
+
+**O PADRÃO ARQUITETURAL EXIGIDO:**
+"Preciso criar um sistema profissional para ser hospedado no Railway com Banco de Dados PostgreSQL ou MongoDB . Não quero um site estático (apenas HTML), preciso da estrutura separada em Frontend e Backend.
+
+BACKEND (Node.js + Express):
+- Configure um servidor que utilize o pacote pg para conectar ao PostgreSQL.
+- Use variáveis de ambiente para a conexão: process.env.DATABASE_URL.
+- IMPORTANTE: No Pool do PG adicione `ssl: { rejectUnauthorized: false }` para funcionar no Railway.
+- Inclua suporte a CORS.
+- Crie a rota (POST /api/postes) para salvar as métricas no banco (salvar a string base e a data).
+- Forneça o arquivo package.json.
+
+FRONTEND (HTML/CSS Vanilla):
+- O frontend processará a string localmente para que seja instantâneo, exibindo o resultado para o usuário copiar.
+- O estilo da página deve ser Limpo, Dark Mode com "Glassmorphism" (estilo Tailwind).
+- Sempre que o usuário clicar no botão "Gerar Numeração", além de rodar no navegador, chame o `fetch` para o Backend passando a info processada.
+- Deixe configurado `const API_URL = 'http://localhost:3001'` (variável global).
+
+Por favor, forneça-me os códigos do `server.js`, e do `index.html` completo com seus scripts no topo.
