@@ -10,7 +10,7 @@ import { createWorker } from 'tesseract.js';
 import {
     FileUp, MapPin, Trash2, Download, ChevronLeft, ChevronRight,
     MousePointer2, Hash, CheckCircle2, XCircle, Crop, Type,
-    Loader2, ZoomIn, ZoomOut, FilePlus, Globe, ArrowLeft
+    Loader2, ZoomIn, ZoomOut, FilePlus, PlusSquare, Globe, ArrowLeft
 } from 'lucide-react';
 
 const WGS84 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs";
@@ -397,6 +397,13 @@ export default function EarthPage() {
     const handleChangeMode = () => {
         setAppMode(null);
         setSidebarMode('empty');
+        setNsNumber('');
+        setPdfFile(null);
+        setPdfDoc(null);
+        setApprovedPoints([]);
+        setPageNum(1);
+        setTotalPages(0);
+        setTempPoint({ e: '', n: '', title: '', isDivisa: false });
     };
 
     // --- LOADING & AUTH GUARDS ---
@@ -674,7 +681,7 @@ export default function EarthPage() {
                                     ? 'bg-white border-emerald-500 text-emerald-600 hover:bg-emerald-50'
                                     : 'bg-white border-blue-500 text-blue-600 hover:bg-blue-50'
                                     }`}>
-                                    <FilePlus size={16} /> Adicionar Manualmente
+                                    <PlusSquare size={16} /> Adicionar Manualmente
                                 </button>
                             </div>
 
