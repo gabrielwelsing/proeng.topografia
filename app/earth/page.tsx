@@ -406,6 +406,22 @@ export default function EarthPage() {
         setTempPoint({ e: '', n: '', title: '', isDivisa: false });
     };
 
+    const handleNewProcess = () => {
+        if (approvedPoints.length > 0 || pdfDoc) {
+            if (!confirm("Deseja realmente iniciar um novo processo? Isso limpará todos os pontos e o documento atual.")) {
+                return;
+            }
+        }
+        setPdfFile(null);
+        setPdfDoc(null);
+        setApprovedPoints([]);
+        setNsNumber('');
+        setSidebarMode('empty');
+        setPageNum(1);
+        setTotalPages(0);
+        setTempPoint({ e: '', n: '', title: '', isDivisa: false });
+    };
+
     // --- LOADING & AUTH GUARDS ---
     if (!isMounted || loading) return null;
 
@@ -548,6 +564,14 @@ export default function EarthPage() {
                         }`}>
                         {modeLabel}
                     </span>
+
+                    <button
+                        onClick={handleNewProcess}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded border border-slate-500 text-xs font-bold transition-all shadow-sm active:scale-95 ml-2"
+                        title="Iniciar Novo Processo"
+                    >
+                        <PlusSquare size={14} /> Novo
+                    </button>
 
                     {pdfDoc && (
                         <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-600">
