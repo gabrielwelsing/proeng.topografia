@@ -10,7 +10,7 @@ import { createWorker } from 'tesseract.js';
 import {
     FileUp, MapPin, Trash2, Download, ChevronLeft, ChevronRight,
     MousePointer2, Hash, CheckCircle2, XCircle, Crop, Type,
-    Loader2, ZoomIn, ZoomOut, FilePlus, PlusSquare, Globe, ArrowLeft
+    Loader2, ZoomIn, ZoomOut, FilePlus, Globe, ArrowLeft
 } from 'lucide-react';
 
 const WGS84 = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs";
@@ -397,29 +397,6 @@ export default function EarthPage() {
     const handleChangeMode = () => {
         setAppMode(null);
         setSidebarMode('empty');
-        setNsNumber('');
-        setPdfFile(null);
-        setPdfDoc(null);
-        setApprovedPoints([]);
-        setPageNum(1);
-        setTotalPages(0);
-        setTempPoint({ e: '', n: '', title: '', isDivisa: false });
-    };
-
-    const handleNewProcess = () => {
-        if (approvedPoints.length > 0 || pdfDoc) {
-            if (!confirm("Deseja realmente iniciar um novo processo? Isso limpará todos os pontos e o documento atual.")) {
-                return;
-            }
-        }
-        setPdfFile(null);
-        setPdfDoc(null);
-        setApprovedPoints([]);
-        setNsNumber('');
-        setSidebarMode('empty');
-        setPageNum(1);
-        setTotalPages(0);
-        setTempPoint({ e: '', n: '', title: '', isDivisa: false });
     };
 
     // --- LOADING & AUTH GUARDS ---
@@ -565,14 +542,6 @@ export default function EarthPage() {
                         {modeLabel}
                     </span>
 
-                    <button
-                        onClick={handleNewProcess}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded border border-slate-500 text-xs font-bold transition-all shadow-sm active:scale-95 ml-2"
-                        title="Iniciar Novo Processo"
-                    >
-                        <PlusSquare size={14} /> Novo
-                    </button>
-
                     {pdfDoc && (
                         <div className="flex bg-slate-800 rounded-lg p-1 border border-slate-600">
                             <button onClick={() => setSelectionMode('text')} className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs font-bold transition-all ${selectionMode === 'text' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
@@ -705,7 +674,7 @@ export default function EarthPage() {
                                     ? 'bg-white border-emerald-500 text-emerald-600 hover:bg-emerald-50'
                                     : 'bg-white border-blue-500 text-blue-600 hover:bg-blue-50'
                                     }`}>
-                                    <PlusSquare size={16} /> Adicionar Manualmente
+                                    <FilePlus size={16} /> Adicionar Manualmente
                                 </button>
                             </div>
 
